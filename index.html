@@ -30,14 +30,29 @@ const mat=(color,roughness=.8,metalness=0)=>new THREE.MeshStandardMaterial({colo
 const roadMat=mat(0x252b31),lineMat=mat(0xe3e6e8),orange=mat(0xff7417,.55),dark=mat(0x171d25),skin=mat(0xc9855b),glass=mat(0x66899a,.35,.2);
 function box(parent,x,y,z,w,h,d,m){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
 const road=box(scene,0,-.18,-45,9,.35,110,roadMat);
-for(let x of [-1.5,1.5])for(let z=-95;z<10;z+=8){const l=box(scene,x,.01,z,.07,.025,3.4,lineMat);l.userData.moving=true}
+for(const side of [-1,1]){box(scene,side*4.85,-.02,-45,.55,.28,110,mat(0x46515a,.8,.08));box(scene,side*4.52,.08,-45,.12,.08,110,orange)}
+const roadDashes=[];for(let z=-100;z<10;z+=9)roadDashes.push(box(scene,0,.012,z,.12,.025,3.8,mat(0x7b858b)));
+const roadEdges=[];for(let side of [-1,1])for(let z=-100;z<10;z+=12)roadEdges.push(box(scene,side*4.05,.025,z,.08,.04,2.4,orange));
 const buildings=[];
-for(let side of [-1,1])for(let i=0;i<12;i++){let h=5+(i*7%13),w=3+(i%3);let b=box(scene,side*(7+i%2*1.3),h/2-0.1,-i*9-10,w,h,6,mat(i%2?0x26343d:0x1d2a33));for(let yy=1.6;yy<h-1;yy+=2.1)for(let xx=-w/2+.65;xx<w/2;xx+=1.2){let win=box(scene,side*(7+i%2*1.3)+xx,yy,-i*9-6.92,.48,.7,.05,mat(i%3?0x526a73:0xff9a48,.35));}buildings.push(b)}
+const windowMats=[mat(0x405967,.38,.12),new THREE.MeshStandardMaterial({color:0xffa34e,emissive:0xff6a16,emissiveIntensity:.42,roughness:.35}),mat(0x263b48,.42,.1)];
+for(let side of [-1,1])for(let i=0;i<12;i++){
+ let h=5+(i*7%13),w=3+(i%3),x=side*(7+i%2*1.3),z=-i*9-10;
+ const tower=new THREE.Group();tower.position.set(x,0,z);
+ box(tower,0,h/2-.1,0,w,h,6,mat(i%2?0x26343d:0x1d2a33));
+ box(tower,0,h+.02,0,w+.22,.16,6.2,mat(0x35434c,.6,.22));
+ box(tower,0,h*.48,3.04,.12,h*.82,.12,mat(0x53616a,.55,.25));
+ for(let yy=1.35;yy<h-1;yy+=2.05)for(let xx=-w/2+.58;xx<w/2-.2;xx+=.95)box(tower,xx,yy,3.035,.52,.78,.055,windowMats[(i+Math.floor(yy)+Math.round(xx*2))%3]);
+ for(let xx=-w/2+.5;xx<w/2;xx+=1.35)box(tower,xx,h+.18,0,.13,.28,.13,mat(0x64717a,.55,.3));
+ box(tower,side*.45,h+.42,-.4,.75,.42,.85,mat(0x303d47,.55,.35));
+ box(tower,side*.45,h+.65,-.4,.82,.08,.92,orange);
+ scene.add(tower);buildings.push(tower);
+}
 const lamps=[];for(let z=-90;z<8;z+=16)for(let s of [-1,1]){let g=new THREE.Group();g.position.set(s*5,0,z);box(g,0,2,0,.12,4,.12,mat(0x59636b));box(g,-s*.55,3.9,0,1.1,.12,.12,mat(0x59636b));let bulb=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),new THREE.MeshBasicMaterial({color:0xffa64d}));bulb.position.set(-s*1.05,3.8,0);g.add(bulb);scene.add(g);lamps.push(g)}
 const player=new THREE.Group();scene.add(player);player.position.set(0,0,2);
 const hoodie=mat(0x171d25,.92),hoodieEdge=mat(0x303a45),hairMat=mat(0x563522,.9),hairLight=mat(0x70462d,.85),eyeMat=mat(0x171311,.35),white=mat(0xfff1df,.55),shoeMat=mat(0x0c1118,.85),orangeGlow=mat(0xff7417,.45,.08);
 function ellipsoid(parent,x,y,z,sx,sy,sz,m){const o=new THREE.Mesh(new THREE.SphereGeometry(1,20,16),m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
 box(player,0,1.12,0,.9,1.08,.55,hoodie);ellipsoid(player,0,1.62,-.02,.49,.38,.34,hoodieEdge);
+const backpack=box(player,0,1.28,-.36,.62,.72,.22,dark);backpack.rotation.x=-.08;box(player,0,1.45,-.49,.34,.22,.035,orangeGlow);
 const hood=new THREE.Mesh(new THREE.TorusGeometry(.39,.13,12,24,Math.PI),hoodie);hood.position.set(0,2.04,-.16);hood.rotation.z=Math.PI;hood.castShadow=true;player.add(hood);
 box(player,0,1.17,.282,.035,.76,.018,orangeGlow);
 for(const x of [-.13,.13]){const cord=box(player,x,1.39,.29,.018,.25,.018,white);cord.rotation.z=x<0?-.08:.08;ellipsoid(player,x,1.25,.3,.035,.035,.025,orangeGlow)}
@@ -51,11 +66,25 @@ const smilePts=[new THREE.Vector3(-.105,-.235,.35),new THREE.Vector3(0,-.275,.38
 const cap=new THREE.Mesh(new THREE.SphereGeometry(.405,24,16,0,Math.PI*2,0,Math.PI*.57),hairMat);cap.position.set(0,.18,-.005);cap.castShadow=true;head.add(cap);
 ellipsoid(head,-.20,.22,.255,.17,.13,.12,hairLight);ellipsoid(head,-.035,.27,.285,.17,.12,.12,hairMat);ellipsoid(head,.14,.22,.25,.16,.12,.12,hairLight);
 ellipsoid(head,-.34,.04,.05,.09,.2,.12,hairMat);ellipsoid(head,.34,.04,.05,.09,.2,.12,hairMat);
+const headsetBand=new THREE.Mesh(new THREE.TorusGeometry(.39,.035,8,24,Math.PI),mat(0x10151b,.45,.25));headsetBand.position.set(0,.12,-.055);headsetBand.rotation.z=Math.PI;head.add(headsetBand);
+for(const x of [-.39,.39]){ellipsoid(head,x,-.015,.015,.105,.15,.105,dark);const ring=new THREE.Mesh(new THREE.TorusGeometry(.095,.018,8,16),orangeGlow);ring.position.set(x,-.015,.105);head.add(ring)}
 const armL=new THREE.Group(),armR=new THREE.Group();armL.position.set(-.49,1.52,0);armR.position.set(.49,1.52,0);player.add(armL,armR);
 for(const [g,sgn] of [[armL,-1],[armR,1]]){ellipsoid(g,0,-.24,0,.16,.31,.17,hoodie);ellipsoid(g,0,-.48,.015,.145,.16,.15,hoodieEdge);ellipsoid(g,0,-.62,.045,.13,.13,.13,skin);box(g,sgn*.005,-.49,.14,.2,.045,.035,orangeGlow)}
 const legL=new THREE.Group(),legR=new THREE.Group();legL.position.set(-.23,.62,0);legR.position.set(.23,.62,0);player.add(legL,legR);
 for(const [g,sgn] of [[legL,-1],[legR,1]]){ellipsoid(g,0,-.22,0,.17,.31,.18,hoodie);ellipsoid(g,0,-.48,.055,.18,.12,.29,shoeMat);ellipsoid(g,0,-.52,.19,.18,.07,.13,white);box(g,0,-.45,.08,.2,.035,.035,orangeGlow)}
-function makeRobot(){let g=new THREE.Group();const steel=mat(0x384651,.5,.42),lightSteel=mat(0x667680,.42,.38),joint=mat(0x202a32,.6,.3);box(g,0,.9,0,1.2,1.25,.8,steel);box(g,0,1.76,0,1.08,.74,.76,lightSteel);box(g,0,1.69,.405,.76,.25,.045,mat(0x10151b));for(let x of [-.22,.22]){let eye=new THREE.Mesh(new THREE.SphereGeometry(.095,14,12),new THREE.MeshBasicMaterial({color:0xff2e20}));eye.position.set(x,1.7,.445);g.add(eye);let glow=new THREE.PointLight(0xff2b1b,.6,2);glow.position.copy(eye.position);g.add(glow)}for(let x of [-.68,.68]){let shoulder=box(g,x,1.12,0,.48,.52,.65,lightSteel);shoulder.rotation.z=x<0?-.15:.15;box(g,x,.0,0,.24,.9,.28,joint);box(g,x,.0,.17,.4,.18,.42,orange);ellipsoid(g,x,.68,.03,.19,.19,.19,joint);let claw=box(g,x,.0,.3,.28,.12,.22,steel)}box(g,0,.92,.43,.68,.16,.05,orange);box(g,0,.38,.42,.48,.12,.05,mat(0xff3b24));return g}
+function makeRobot(){
+ let g=new THREE.Group();const steel=mat(0x384651,.42,.55),lightSteel=mat(0x778791,.36,.5),joint=mat(0x202a32,.55,.42),glassFace=mat(0x101820,.22,.35);
+ box(g,0,1.02,0,1.28,1.25,.82,steel);box(g,0,1.05,.43,.82,.68,.055,glassFace);box(g,0,1.06,.47,.62,.42,.035,mat(0x26343d,.35,.5));
+ for(let x of [-.22,.22])box(g,x,1.06,.5,.07,.31,.04,orange);
+ for(let y of [.78,1.32])box(g,0,y,.505,.72,.045,.04,lightSteel);
+ box(g,0,1.84,0,1.12,.76,.78,lightSteel);box(g,0,1.76,.405,.82,.27,.05,glassFace);
+ for(let x of [-.25,.25]){let eye=new THREE.Mesh(new THREE.SphereGeometry(.105,16,12),new THREE.MeshBasicMaterial({color:0xff2e20}));eye.position.set(x,1.77,.46);g.add(eye);let glow=new THREE.PointLight(0xff2b1b,.85,2.4);glow.position.copy(eye.position);g.add(glow)}
+ box(g,0,2.27,0,.48,.12,.34,orange);box(g,.38,2.42,-.04,.055,.38,.055,joint);
+ const beacon=new THREE.Mesh(new THREE.SphereGeometry(.09,12,10),new THREE.MeshBasicMaterial({color:0xff3b20}));beacon.position.set(.38,2.62,-.04);g.add(beacon);
+ for(let x of [-.72,.72]){const shoulder=box(g,x,1.25,0,.52,.55,.68,lightSteel);shoulder.rotation.z=x<0?-.12:.12;ellipsoid(g,x,.94,.02,.23,.22,.23,joint);box(g,x,.43,0,.27,.72,.31,steel);box(g,x,.12,.12,.46,.2,.48,orange);ellipsoid(g,x,.02,.05,.23,.16,.22,lightSteel);for(let k=-1;k<=1;k++)box(g,x+k*.11,-.12,.24,.055,.22,.08,joint)}
+ for(let x of [-.35,.35]){box(g,x,.0,0,.32,.22,.42,joint);box(g,x,-.13,.14,.42,.16,.62,steel);box(g,x,-.19,.43,.45,.12,.26,orange)}
+ box(g,0,.36,.44,.72,.12,.06,orange);return g
+}
 const robot=makeRobot();scene.add(robot);robot.position.set(0,0,-12);
 let obstacles=[],coins3=[],particles=[],lane=1,dist=0,coins=0,lead=20,jump=0,slide=0,spawn=0,gameState='menu',best=+(localStorage.getItem('arni3_best')||0),speed=19,clock=new THREE.Clock(),shake=0,runTime=0,nearMisses=0,lastZone=0;
 let audioCtx=null,soundOn=localStorage.getItem('arni_sound')!=='off';const soundBtn=$('sound');soundBtn.textContent=soundOn?'🔊':'🔇';
@@ -103,7 +132,12 @@ for(let c of coins3){c.m.position.z+=speed*dt;c.m.rotation.y+=dt*3;if(!c.hit&&c.
 obstacles=obstacles.filter(o=>{if(o.g.position.z>8){scene.remove(o.g);return false}return true});coins3=coins3.filter(c=>c.hit||c.m.position.z<8);
 lead=Math.min(35,lead+dt*.42);$('dist').textContent=Math.floor(dist);$('coins').textContent=coins;$('lead').textContent=Math.max(0,Math.floor(lead));$('progress').style.width=Math.min(100,dist/10)+'%';if(dist>=1000)finish(true);
 }
-for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.position.addScaledVector(p.v,dt);p.v.y-=5*dt;p.m.scale.multiplyScalar(.985);if(p.life<=0){scene.remove(p.m);particles.splice(i,1)}} if(gameState==='run'){for(let l of lamps){l.position.z+=speed*dt*.65;if(l.position.z>14)l.position.z=-100}for(let b of buildings){b.position.z+=speed*dt*.15;if(b.position.z>18)b.position.z=-105}}
+for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.position.addScaledVector(p.v,dt);p.v.y-=5*dt;p.m.scale.multiplyScalar(.985);if(p.life<=0){scene.remove(p.m);particles.splice(i,1)}} if(gameState==='run'){
+ for(let l of lamps){l.position.z+=speed*dt*.65;if(l.position.z>14)l.position.z=-100}
+ for(let b of buildings){b.position.z+=speed*dt*.15;if(b.position.z>18)b.position.z=-105}
+ for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z=-100}
+ for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z=-100}
+}
 if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=6.2+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=6.2}renderer.render(scene,camera)}
 animate();
 function resize(){const w=root.clientWidth,h=root.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h)}addEventListener('resize',resize);
