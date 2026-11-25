@@ -9,12 +9,12 @@
 #hud{position:absolute;top:0;left:0;right:0;padding:14px;pointer-events:none;display:none}.row{display:flex;justify-content:space-between;gap:8px}.pill{background:#101820d9;border:1px solid #ffffff25;border-radius:12px;padding:9px 11px;font-size:12px;font-weight:800;backdrop-filter:blur(8px)}b{color:#ff8a32}.bar{height:7px;background:#ffffff25;border-radius:9px;margin-top:9px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffb15b,#f15b16)}
 #controls{display:none;position:absolute;bottom:max(16px,env(safe-area-inset-bottom));left:0;right:0;justify-content:space-between;gap:12px;padding:0 16px;z-index:5;pointer-events:none}.ctrl{width:88px;height:76px;pointer-events:auto;touch-action:none;border-radius:19px;background:#111923ed;border:1px solid #ffffff65;color:white;font-weight:900;font-size:27px;display:grid;place-items:center;user-select:none;-webkit-user-select:none;box-shadow:0 6px 20px #0008}.ctrl.jump{width:132px;background:linear-gradient(145deg,#ff9238,#ed590b);font-size:15px}
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:22px;background:#080b10d9;text-align:center}.panel{width:100%;max-width:390px;padding:25px 22px;background:linear-gradient(145deg,#222c37f5,#11161df5);border:1px solid #ff741766;border-radius:24px;box-shadow:0 18px 65px #000b}.logo{font-size:28px;font-weight:1000;letter-spacing:3px}.logo span{color:#ff7417}.kicker{color:#ff9a54;font-size:11px;letter-spacing:3px;font-weight:800;margin:8px 0 18px}h1{font-size:25px;line-height:1.12;margin:8px 0 12px}p{color:#c4ccd5;font-size:14px;line-height:1.5}button{width:100%;border:0;border-radius:14px;padding:15px 18px;margin-top:13px;background:linear-gradient(135deg,#ff9238,#ed590b);color:#fff;font-weight:900;font-size:15px}.small{font-size:11px;color:#8793a0;margin-top:14px}
-#flash{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle,transparent 35%,#ff4b1c88 100%);transition:opacity .12s}#pause,#sound{display:none;position:absolute;top:88px;width:42px;height:42px;padding:0;margin:0;background:#111923dd;border:1px solid #ffffff44;border-radius:12px;font-size:17px;pointer-events:auto}#pause{right:14px}#sound{right:64px}
+#zoneToast{position:absolute;top:22%;left:50%;transform:translate(-50%,-8px);opacity:0;pointer-events:none;text-align:center;padding:10px 18px;border:1px solid #ff8a3266;border-radius:14px;background:#101820dc;box-shadow:0 8px 30px #0008;transition:opacity .35s,transform .35s;z-index:3;min-width:190px;backdrop-filter:blur(10px)}#zoneToast.show{opacity:1;transform:translate(-50%,0)}#zoneToast span{display:block;color:#ff9a54;font-size:9px;letter-spacing:2px;font-weight:900;margin-bottom:4px}#zoneToast b{color:#fff;font-size:13px;letter-spacing:1px}#flash{position:absolute;inset:0;pointer-events:none;opacity:0;background:radial-gradient(circle,transparent 35%,#ff4b1c88 100%);transition:opacity .12s}#pause,#sound{display:none;position:absolute;top:88px;width:42px;height:42px;padding:0;margin:0;background:#111923dd;border:1px solid #ffffff44;border-radius:12px;font-size:17px;pointer-events:auto}#pause{right:14px}#sound{right:64px}
 </style>
 </head>
 <body><div id="game">
 <div id="hud"><div class="row"><div class="pill">ДИСТАНЦИЯ <b id="dist">0</b>/1000 м</div><div class="pill">🪙 <b id="coins">0</b></div></div><div class="bar"><i id="progress"></i></div><div class="row" style="margin-top:8px"><div class="pill">ОТРЫВ <b id="lead">20</b> м</div><div class="pill">РЕКОРД <b id="best">0</b> м</div></div></div>
-<button id="pause">Ⅱ</button><button id="sound" aria-label="Звук">🔊</button><div id="flash"></div>
+<button id="pause">Ⅱ</button><button id="sound" aria-label="Звук">🔊</button><div id="flash"></div><div id="zoneToast" aria-live="polite"><span>РАЙОН 01</span><b>ГОРОДСКИЕ УЛИЦЫ</b></div>
 <div id="controls"><div class="ctrl" id="left">◀</div><div class="ctrl jump" id="jump">ПРЫЖОК</div><div class="ctrl" id="right">▶</div></div>
 <div class="overlay" id="menu"><div class="panel"><div class="logo">ARNI<span> GAME</span></div><div class="kicker">DIGITAL CITY RUN · 3D PROTOTYPE</div><h1>ПОБЕГ ИЗ ГОРОДА</h1><p>Система безопасности приняла ARNI за нарушителя. Уклоняйся от препятствий, собирай монеты и не дай охранному роботу тебя догнать.</p><p><b>Цель:</b> пробежать 1 000 метров.</p><button id="start">НАЧАТЬ ПОБЕГ</button><div class="small">← → — смена полосы · ↑ / ПРОБЕЛ — прыжок</div></div></div>
 <div class="overlay" id="result" style="display:none"><div class="panel"><div class="logo">ARNI<span> GAME</span></div><div class="kicker" id="resultKicker">ЗАБЕГ ЗАВЕРШЁН</div><h1 id="resultTitle">ПОБЕГ ОКОНЧЕН</h1><p id="resultText"></p><button id="retry">ИГРАТЬ СНОВА</button><div class="small">ARNI | DIGITAL DEVELOPMENT · @arni_dev</div></div></div>
@@ -48,6 +48,40 @@ for(let side of [-1,1])for(let i=0;i<12;i++){
  scene.add(tower);buildings.push(tower);
 }
 const lamps=[];for(let z=-90;z<8;z+=16)for(let s of [-1,1]){let g=new THREE.Group();g.position.set(s*5,0,z);box(g,0,2,0,.12,4,.12,mat(0x59636b));box(g,-s*.55,3.9,0,1.1,.12,.12,mat(0x59636b));let bulb=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),new THREE.MeshBasicMaterial({color:0xffa64d}));bulb.position.set(-s*1.05,3.8,0);g.add(bulb);scene.add(g);lamps.push(g)}
+const roadsideRows=[];
+const zoneMaterials=[
+ {base:mat(0x263844,.78,.08),accent:mat(0xff7417,.55,.08),glass:mat(0x527487,.35,.25)},
+ {base:mat(0x45413a,.9,.02),accent:mat(0xff8a22,.55,.05),glass:mat(0x68747a,.5,.12)},
+ {base:mat(0x1d303a,.38,.35),accent:mat(0xff7417,.4,.25),glass:mat(0x4c8497,.25,.4)}
+];
+function makeRoadsideRow(distance,zone){
+ const g=new THREE.Group(),m=zoneMaterials[zone];
+ for(const side of [-1,1]){
+  const x=side*6.35;
+  if(zone===0){
+   box(g,x,.75,0,.32,1.5,.32,m.base);box(g,x,.28,.19,.62,.28,.12,m.accent);box(g,x,1.28,.18,.48,.22,.08,m.glass);
+   if(distance%80<1){box(g,side*7.4,2.8,0,.22,5.6,.22,m.base);box(g,side*7.4,5.5,0,1.4,.16,.5,m.accent)}
+  }else if(zone===1){
+   box(g,x,.62,0,1.5,1.24,.28,m.base);
+   for(let k=-1;k<=1;k++){const stripe=box(g,x+k*.43,.62,.17,.19,1.1,.035,m.accent);stripe.rotation.z=-.25}
+   if(distance%70<1){box(g,side*8.2,3.1,0,.18,6.2,.18,m.base);box(g,side*7.1,6.1,0,2.3,.18,.24,m.accent);box(g,side*7.7,5.55,0,.16,1.1,.16,m.base)}
+  }else{
+   box(g,x,1.65,0,.55,3.3,.55,m.base);box(g,x,1.8,.3,.34,2.5,.08,m.glass);box(g,x,3.42,0,.8,.12,.8,m.accent);
+   const ring=new THREE.Mesh(new THREE.TorusGeometry(.72,.045,8,24),m.accent);ring.position.set(x,2.0,.1);g.add(ring);
+  }
+ }
+ g.position.z=2-distance*1.05;scene.add(g);roadsideRows.push(g);
+}
+for(let d=20;d<=1000;d+=35)makeRoadsideRow(d,d<330?0:d<660?1:2);
+const zoneNames=[['РАЙОН 01','ГОРОДСКИЕ УЛИЦЫ'],['РАЙОН 02','СТРОИТЕЛЬНАЯ ЗОНА'],['РАЙОН 03','ТЕХНОЛОГИЧЕСКИЙ КВАРТАЛ']];
+let currentZone=0,zoneToastTimer=0;
+function updateZone(next){
+ if(next===currentZone)return;currentZone=next;
+ const [small,big]=zoneNames[next];$('zoneToast').innerHTML='<span>'+small+'</span><b>'+big+'</b>';
+ $('zoneToast').classList.add('show');zoneToastTimer=2.6;
+ const colors=[0x18252d,0x292a2b,0x142631];scene.background.set(colors[next]);scene.fog.color.set(colors[next]);
+}
+
 const player=new THREE.Group();scene.add(player);player.position.set(0,0,2);
 const hoodie=mat(0x171d25,.92),hoodieEdge=mat(0x303a45),hairMat=mat(0x563522,.9),hairLight=mat(0x70462d,.85),eyeMat=mat(0x171311,.35),white=mat(0xfff1df,.55),shoeMat=mat(0x0c1118,.85),orangeGlow=mat(0xff7417,.45,.08);
 function ellipsoid(parent,x,y,z,sx,sy,sz,m){const o=new THREE.Mesh(new THREE.SphereGeometry(1,20,16),m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
@@ -95,8 +129,8 @@ $('best').textContent=best;
 function makeObstacle(type,l,z){let g=new THREE.Group();if(type==='car'){box(g,0,.65,0,1.45,.9,2.15,mat(0x315064,.4,.25));box(g,0,1.1,-.15,1.05,.45,1.05,glass);for(let x of [-.52,.52])for(let zz of [-.72,.72]){let w=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.14,12),mat(0x111316));w.rotation.z=Math.PI/2;w.position.set(x,.3,zz);g.add(w)}box(g,-.42,.43,1.09,.22,.12,.04,mat(0xff4938));box(g,.42,.43,1.09,.22,.12,.04,mat(0xff4938))}else if(type==='barrier'){box(g,0,.5,0,1.55,.85,.35,orange);for(let x of [-.48,0,.48]){let stripe=box(g,x,.5,.2,.16,.82,.035,mat(0x20252b));stripe.rotation.z=-.28}}else{box(g,0,.48,0,.95,.95,.8,mat(0xb45b27));box(g,0,.98,0,.96,.08,.82,mat(0xd17a3c));box(g,0,.5,.42,.52,.38,.025,mat(0x8b451f))}g.position.set([-3,0,3][l],0,z);scene.add(g);obstacles.push({g,l,type,hit:false})}
 function makeCoin(l,z){let m=new THREE.Mesh(new THREE.TorusGeometry(.28,.09,8,18),mat(0xffb52e,.3,.55));m.position.set([-3,0,3][l],1.25,z);scene.add(m);coins3.push({m,l,hit:false})}
 function burst(x,y,z,color=0xffb52e,count=9){for(let i=0;i<count;i++){let m=new THREE.Mesh(new THREE.SphereGeometry(.045+Math.random()*.035,6,6),new THREE.MeshBasicMaterial({color,transparent:true}));m.position.set(x,y,z);scene.add(m);particles.push({m,v:new THREE.Vector3((Math.random()-.5)*4,Math.random()*3,(Math.random()-.5)*3),life:.45+Math.random()*.35})}} function clearObjects(){obstacles.forEach(o=>scene.remove(o.g));coins3.forEach(o=>scene.remove(o.m));particles.forEach(p=>scene.remove(p.m));obstacles=[];coins3=[];particles=[]}
-function start(){sfx('start');clearObjects();lane=1;dist=0;coins=0;lead=20;jump=0;spawn=.6;speed=19;shake=0;runTime=0;nearMisses=0;lastZone=0;scene.background.set(0x18252d);scene.fog.color.set(0x18252d);gameState='run';$('menu').style.display='none';$('result').style.display='none';$('hud').style.display='block';$('controls').style.display='flex';$('pause').style.display='block';$('sound').style.display='block';$('dist').textContent='0';$('coins').textContent='0';$('lead').textContent='20'}
-function finish(win){if(gameState!=='run')return;sfx(win?'win':'lose');gameState='end';let d=Math.floor(dist);if(d>best){best=d;localStorage.setItem('arni3_best',best)}$('resultKicker').textContent=win?'МИССИЯ ВЫПОЛНЕНА':'РОБОТ ДОГНАЛ ТЕБЯ';$('resultTitle').textContent=win?'ТЫ СБЕЖАЛ!':'ПОБЕГ ОКОНЧЕН';$('resultText').innerHTML=win?`Ты вырвался из охраняемого квартала и добрался до безопасной зоны.<br><br>Дистанция: <b>${d} м</b><br>Собрано монет: <b>${coins}</b><br>Уверенных уклонений: <b>${nearMisses}</b><br>Рекорд: <b>${best} м</b>`:`Дистанция: <b>${d} м</b><br>Собрано монет: <b>${coins}</b><br>Уверенных уклонений: <b>${nearMisses}</b><br>Рекорд: <b>${best} м</b>`;$('result').style.display='flex';$('hud').style.display='none';$('controls').style.display='none';$('pause').style.display='none';$('sound').style.display='none'}
+function start(){sfx('start');clearObjects();currentZone=0;zoneToastTimer=0;$('zoneToast').classList.remove('show');scene.background.set(0x18252d);scene.fog.color.set(0x18252d);lane=1;dist=0;coins=0;lead=20;jump=0;spawn=.6;speed=19;shake=0;runTime=0;nearMisses=0;lastZone=0;scene.background.set(0x18252d);scene.fog.color.set(0x18252d);gameState='run';$('menu').style.display='none';$('result').style.display='none';$('hud').style.display='block';$('controls').style.display='flex';$('pause').style.display='block';$('sound').style.display='block';$('dist').textContent='0';$('coins').textContent='0';$('lead').textContent='20'}
+function finish(win){if(gameState!=='run')return;sfx(win?'win':'lose');gameState='end';if(win){armL.rotation.z=-.8;armR.rotation.z=.8;armL.rotation.x=-2.5;armR.rotation.x=-2.5;player.rotation.z=0;}else{player.rotation.z=.28;head.rotation.x=.35;armL.rotation.x=1.1;armR.rotation.x=1.1;robot.position.z=1.2;}let d=Math.floor(dist);if(d>best){best=d;localStorage.setItem('arni3_best',best)}$('resultKicker').textContent=win?'МИССИЯ ВЫПОЛНЕНА':'РОБОТ ДОГНАЛ ТЕБЯ';$('resultTitle').textContent=win?'ТЫ СБЕЖАЛ!':'ПОБЕГ ОКОНЧЕН';$('resultText').innerHTML=win?`Ты вырвался из охраняемого квартала и добрался до безопасной зоны.<br><br>Дистанция: <b>${d} м</b><br>Собрано монет: <b>${coins}</b><br>Уверенных уклонений: <b>${nearMisses}</b><br>Рекорд: <b>${best} м</b>`:`Дистанция: <b>${d} м</b><br>Собрано монет: <b>${coins}</b><br>Уверенных уклонений: <b>${nearMisses}</b><br>Рекорд: <b>${best} м</b>`;$('result').style.display='flex';$('hud').style.display='none';$('controls').style.display='none';$('pause').style.display='none';$('sound').style.display='none'}
 function move(n){if(gameState==='run'){const next=Math.max(0,Math.min(2,lane+n));if(next!==lane)tone(260,.045,'sine',.018);lane=next}}
 function doJump(){if(gameState==='run'&&jump<=0){jump=.88;sfx('jump')}}
 $('start').onclick=start;$('retry').onclick=start;$('sound').onclick=()=>{soundOn=!soundOn;localStorage.setItem('arni_sound',soundOn?'on':'off');soundBtn.textContent=soundOn?'🔊':'🔇';if(soundOn)tone(660,.08,'sine',.025)};
@@ -130,8 +164,9 @@ robot.position.z=-8-lead*.48+Math.sin(t*2.4)*.22;robot.position.x=THREE.MathUtil
 for(let o of obstacles){o.g.position.z+=speed*dt;if(!o.hit&&o.l===lane&&o.g.position.z>-.5&&o.g.position.z<2.1){o.hit=true;const cleared=o.type==='barrier'&&jump>.18;if(!cleared){sfx('hit');lead-=11;shake=.42;burst(player.position.x,.8,1.2,0xff552b,15);$('flash').style.opacity='.72';setTimeout(()=>$('flash').style.opacity='0',110);if(lead<=0)finish(false)}else{lead=Math.min(35,lead+1.8);nearMisses++;burst(player.position.x,1,1,0x68d9ff,5)}}}
 for(let c of coins3){c.m.position.z+=speed*dt;c.m.rotation.y+=dt*3;if(!c.hit&&c.l===lane&&c.m.position.z>-.5&&c.m.position.z<2.2&&jump<.7){c.hit=true;coins++;sfx('coin');burst(c.m.position.x,c.m.position.y,c.m.position.z,0xffc34d,8);scene.remove(c.m)}}
 obstacles=obstacles.filter(o=>{if(o.g.position.z>8){scene.remove(o.g);return false}return true});coins3=coins3.filter(c=>c.hit||c.m.position.z<8);
-lead=Math.min(35,lead+dt*.42);$('dist').textContent=Math.floor(dist);$('coins').textContent=coins;$('lead').textContent=Math.max(0,Math.floor(lead));$('progress').style.width=Math.min(100,dist/10)+'%';if(dist>=1000)finish(true);
+lead=Math.min(35,lead+dt*.42);$('dist').textContent=Math.floor(dist);$('coins').textContent=coins;$('lead').textContent=Math.max(0,Math.floor(lead));$('progress').style.width=Math.min(100,dist/10)+'%';updateZone(dist<330?0:dist<660?1:2);if(dist>=1000)finish(true);
 }
+if(zoneToastTimer>0){zoneToastTimer-=dt;if(zoneToastTimer<=0)$('zoneToast').classList.remove('show')}
 for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.position.addScaledVector(p.v,dt);p.v.y-=5*dt;p.m.scale.multiplyScalar(.985);if(p.life<=0){scene.remove(p.m);particles.splice(i,1)}} if(gameState==='run'){
  for(let l of lamps){l.position.z+=speed*dt*.65;if(l.position.z>14)l.position.z=-100}
  for(let b of buildings){b.position.z+=speed*dt*.15;if(b.position.z>18)b.position.z=-105}
