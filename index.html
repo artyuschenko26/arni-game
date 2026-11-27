@@ -615,7 +615,7 @@ function fitCamera(){
  const distance=9.15,playerZ=2,rotorZ=7.17,rotorY=2.15;
  // Расширяем поле зрения на узком экране, чтобы ARNI помещался на крайних полосах.
  const halfFovTan=Math.max(.73,3.79/(distance*camera.aspect));
- const pitch=Math.atan(.135*halfFovTan);
+ const pitch=THREE.MathUtils.degToRad(8);
  camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(halfFovTan));
  const cameraZ=playerZ+distance;
  // Передние винты дрона при полном отрыве находятся у нижней кромки кадра.
