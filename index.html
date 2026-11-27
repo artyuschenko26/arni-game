@@ -307,13 +307,20 @@ rb(player,0,1.47,0,.68,.64,.42,.15,C.black);                       // тулов
 rb(player,0,1.16,0,.66,.1,.41,.045,C.blackRib);                     // резинка по низу
 rb(player,0,1.31,.195,.4,.19,.06,.03,C.black);                      // карман-кенгуру
 for(const s of [-1,1]){const t=rb(player,s*.18,1.31,.228,.035,.19,.02,.012,C.orange);t.rotation.z=s*.38} // оранжевая окантовка кармана
-decal(player,.07,1.55,.212,.24,.12,chestLogo);{const bA=labelTex('A',{w:128,h:128,size:118});const m=new THREE.Mesh(new THREE.PlaneGeometry(.36,.36),new THREE.MeshStandardMaterial({map:bA,color:0xff8a1a,emissive:0xff6a00,emissiveIntensity:.35,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2}));m.position.set(0,1.47,-.212);m.rotation.y=Math.PI;player.add(m)}                      // логотип ARNI с оранжевой «улыбкой»
+decal(player,.07,1.55,.212,.24,.12,chestLogo);                      // логотип ARNI с оранжевой «улыбкой»
 // плечи
 for(const s of [-1,1])blob(player,s*.29,1.71,0,.13,.1,.18,C.black);
 // капюшон: чёрный воротник, оранжевая подкладка, капюшон на спине
 const hoodGrp=new THREE.Group();hoodGrp.position.set(0,1.83,-.02);player.add(hoodGrp);
 ring(hoodGrp,0,0,0,.2,.075,C.black);ring(hoodGrp,0,.045,0,.16,.035,C.orange);
-blob(hoodGrp,0,-.02,-.19,.22,.15,.09,C.black);ring(hoodGrp,0,.06,-.2,.13,.028,C.orange,Math.PI/2.9);
+const hoodBack=blob(hoodGrp,0,-.145,-.18,.30,.24,.13,C.black);
+hoodBack.geometry=SPH.clone();
+const hoodVertices=hoodBack.geometry.attributes.position;
+for(let i=0;i<hoodVertices.count;i++){
+ const y=hoodVertices.getY(i);
+ hoodVertices.setX(i,hoodVertices.getX(i)*(.83+.2*y));
+}
+hoodBack.geometry.computeVertexNormals();
 // оранжевые шнурки
 for(const s of [-1,1]){const c=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,.15,6),C.orange);c.position.set(s*.07,1.75,.212);c.rotation.z=s*.05;player.add(c);blob(player,s*.072,1.67,.214,.018,.03,.018,C.orange)}
 // шея
@@ -338,12 +345,20 @@ blob(head,0,-.02,-.11,.18,.17,.11,C.hair);                          // заты�
 for(const s of [-1,1])blob(head,s*.175,.07,-.02,.03,.075,.1,C.hair);  // короткие виски
 for(const [x,y,z,sx,sy,sz,m,rz] of [[-.07,.19,.11,.1,.06,.09,C.hair,.2],[.04,.205,.12,.11,.065,.09,C.hairHi,-.15],[.12,.18,.09,.08,.055,.08,C.hair,-.4],[-.13,.165,.06,.08,.06,.09,C.hairHi,.45],[0,.215,.02,.14,.06,.12,C.hair,0],[.02,.19,.155,.09,.045,.05,C.hairHi,-.1]]){const b=blob(head,x,y,z,sx,sy,sz,m);b.rotation.z=rz}
 
+// Рельеф коротких прядей по дуге от макушки к затылку.
+for(let i=-4;i<=4;i++){
+ const t=i/5;
+ const lock=blob(head,t*.14,.065-.03*t*t,-.165+.07*t*t,.035,.119,.057,i%3===0?C.hairHi:C.hair);
+ lock.rotation.z=.28-t*.52;
+ lock.rotation.x=-.38;
+}
+
 // --- руки: плечо → локоть → предплечье (манжета, кулак); часы на левой руке ARNI ---
 const armL=new THREE.Group(),armR=new THREE.Group();armL.position.set(-.41,1.74,0);armR.position.set(.41,1.74,0);player.add(armL,armR);
 const elbowL=new THREE.Group(),elbowR=new THREE.Group();
 for(const [g,el,s] of [[armL,elbowL,-1],[armR,elbowR,1]]){g.rotation.z=s*.12;
  blob(g,0,-.19,0,.115,.23,.12,C.black);
- const band=new THREE.Mesh(new THREE.CylinderGeometry(.112,.11,.075,18),C.orange);band.position.set(0,-.33,0);band.castShadow=true;g.add(band); // оранжевая полоса на рукаве
+ const band=new THREE.Mesh(new THREE.CylinderGeometry(.115,.11,.099,18),C.orange);band.position.set(0,-.33,0);band.castShadow=true;g.add(band); // оранжевая полоса на рукаве
  el.position.set(0,-.39,0);g.add(el);
  blob(el,0,-.15,0,.098,.19,.1,C.black);
  const cuff=new THREE.Mesh(new THREE.CylinderGeometry(.075,.085,.08,14),C.blackRib);cuff.position.set(0,-.32,0);el.add(cuff);
