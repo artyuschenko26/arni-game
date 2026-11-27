@@ -675,9 +675,10 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
 
  // V20: actual skeletal ARNI, with a baked crouch clip and separately modeled hoverboard.
  let rider3D=null,riderMixer=null,riderAction=null,riderDuration=.72,loadingRider3D=true,use3DThisRun=false;
+ let riderPoseClock=0;
  window.__arni3DStatus='loading';
  const hover3DRoot=new THREE.Group();hover3DRoot.name='ARNI_3D_HOVER_RIG';hover3DRoot.visible=false;scene.add(hover3DRoot);
- const deckRig=new THREE.Group();deckRig.rotation.y=.92;hover3DRoot.add(deckRig);
+ const deckRig=new THREE.Group();deckRig.rotation.y=1.07;hover3DRoot.add(deckRig);
  function deckShape(w,l,r){
   const a=w/2,b=l/2,k=Math.min(r,a,b),sh=new THREE.Shape();
   sh.moveTo(-a+k,-b);sh.lineTo(a-k,-b);sh.quadraticCurveTo(a,-b,a,-b+k);sh.lineTo(a,b-k);sh.quadraticCurveTo(a,b,a-k,b);sh.lineTo(-a+k,b);sh.quadraticCurveTo(-a,b,-a,b-k);sh.lineTo(-a,-b+k);sh.quadraticCurveTo(-a,-b,-a+k,-b);return sh;
@@ -689,9 +690,9 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
  const boardBody=new THREE.MeshStandardMaterial({color:0x171820,metalness:.48,roughness:.48});
  const boardOrange=new THREE.MeshBasicMaterial({color:0xff9b27,toneMapped:false});
  const boardTop=new THREE.MeshStandardMaterial({color:0x15161a,metalness:.15,roughness:.88});
- deckLayer(.79,1.65,.09,.055,boardBody);
- deckLayer(.82,1.69,.035,.15,boardOrange);
- deckLayer(.76,1.61,.045,.185,boardTop);
+ deckLayer(.84,1.74,.09,.055,boardBody);
+ deckLayer(.87,1.78,.035,.15,boardOrange);
+ deckLayer(.81,1.70,.045,.185,boardTop);
  for(const z of [-.40,.40]){
   const grip=new THREE.Mesh(new THREE.BoxGeometry(.61,.014,.44),new THREE.MeshStandardMaterial({color:0x292a2d,roughness:1}));grip.position.set(0,.239,z);deckRig.add(grip);
   for(let n=-2;n<=2;n++){
@@ -712,8 +713,8 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    const loader=new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
    const gltf=await loader.parseAsync(bytes.buffer,'');const clip=gltf.animations.find(a=>a.name==='ARNI_CROUCH');
    if(!clip||clip.duration<.6||clip.tracks.length<10)throw Error('Missing crouch clip');
-   const model=gltf.scene;model.name='ARNI_CROUCH_V2';model.scale.setScalar(2.45);model.position.y=.252;
-   let skinned=0;model.traverse(o=>{if(o.isSkinnedMesh){skinned++;o.frustumCulled=false;o.castShadow=false;o.receiveShadow=false;}if(o.isMesh&&o.material){const maps=[o.material.map,o.material.normalMap];for(const m of maps)if(m)m.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());}});
+   const model=gltf.scene;model.name='ARNI_CROUCH_V2';model.scale.setScalar(2.58);model.position.y=.252;
+   let skinned=0;model.traverse(o=>{if(o.isSkinnedMesh){skinned++;o.frustumCulled=false;o.castShadow=false;o.receiveShadow=false;}if(o.isMesh&&o.material){const maps=[o.material.map,o.material.normalMap];for(const m of maps)if(m)m.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());if(o.material.isMeshStandardMaterial){o.material.roughness=.92;o.material.metalness=0;o.material.emissive.set(0xfff0df);o.material.emissiveMap=o.material.map;o.material.emissiveIntensity=.58;if(o.material.normalMap)o.material.normalScale.set(.38,.38);o.material.needsUpdate=true;}}});
    if(!skinned)throw Error('Missing skinned mesh');
    deckRig.add(model);rider3D=model;riderMixer=new THREE.AnimationMixer(model);riderDuration=clip.duration;
    riderAction=riderMixer.clipAction(clip);riderAction.setLoop(THREE.LoopOnce,1);riderAction.clampWhenFinished=true;riderAction.play();riderAction.paused=true;riderAction.time=0;riderMixer.update(0);
@@ -727,7 +728,7 @@ function updateRunnerImage(time,dt){
  const useModel=riding&&use3DThisRun&&!!rider3D;
  player.visible=!riding;illustratedRunner.visible=riding&&!useModel;hoverTrail.visible=riding;hover3DRoot.visible=useModel;
  riderShadow.visible=riding;
- if(!riding){hoverBank=0;hoverBend=0;hoverPrevX=null;return;}
+ if(!riding){hoverBank=0;hoverBend=0;hoverPrevX=null;riderPoseClock=0;return;}
  const moving=gameState==='run'||gameState==='finishing';
  const motionDt=moving?Math.max(.001,dt):0;
  const vx=hoverPrevX===null||!moving?0:(player.position.x-hoverPrevX)/motionDt;
@@ -745,9 +746,12 @@ function updateRunnerImage(time,dt){
  runMaterial.rotation=lean;
  if(useModel){
   hover3DRoot.position.set(player.position.x,.07+lift+jumpLift,player.position.z);
-  hover3DRoot.rotation.z=lean*.76;hover3DRoot.rotation.x=air?-.08:0;
+  riderPoseClock+=motionDt;
+  const balance=low?0:Math.sin(riderPoseClock*3.1)*.025;
+  hover3DRoot.rotation.z=lean*.76+balance;hover3DRoot.rotation.x=air?-.08:balance*.55;
   // Sampling the authored animation from the exact game slide timer preserves pause/resume.
-  riderAction.time=low?Math.min(riderDuration-.00001,Math.max(0,(.72-slide)/.72*riderDuration)):0;
+  const idleSample=air?.035:(.008+.008*Math.sin(riderPoseClock*3.8));
+  riderAction.time=low?Math.min(riderDuration-.00001,Math.max(0,(.72-slide)/.72*riderDuration)):idleSample;
   riderMixer.update(0);
  }
  hoverTrail.position.set(player.position.x,.02,player.position.z);
