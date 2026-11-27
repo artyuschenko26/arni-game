@@ -685,7 +685,7 @@ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.positio
  for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=112}
  for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z=-100}
 }
-if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}updateRunnerImage(t);renderer.render(scene,camera)}
+if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}updateRunnerImage(t);robot.userData.body.position.z=['run','paused','countdown','finishing'].includes(gameState)?.82:0;renderer.render(scene,camera)}
 animate();
 // Камера подстраивается под ширину экрана: на узких телефонах (в т.ч. в Telegram) все три полосы и ARNI остаются в кадре
 function fitCamera(){
