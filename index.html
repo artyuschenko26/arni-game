@@ -990,6 +990,7 @@ pad.addEventListener('pointermove',e=>{if(!gesture||gesture.id!==e.pointerId||ge
 const endGesture=e=>{if(gesture&&gesture.id===e.pointerId)gesture=null};pad.addEventListener('pointerup',endGesture,{passive:true});pad.addEventListener('pointercancel',endGesture,{passive:true});
 let frameEMA=1/60,qualityElapsed=0;
 function animate(){requestAnimationFrame(animate);const rawDt=clock.getDelta();let dt=Math.min(rawDt,.04),t=clock.elapsedTime;
+ if(gameState==='menu')return;
  if(gameState==='run'&&rawDt<.25){frameEMA=frameEMA*.97+rawDt*.03;qualityElapsed+=rawDt;if(qualityElapsed>4){qualityElapsed=0;if(frameEMA>.027&&renderRatio>Math.min(maxPixelRatio,1.35)){renderRatio=Math.max(Math.min(maxPixelRatio,1.35),renderRatio-.2);renderer.setPixelRatio(renderRatio);renderer.setSize(root.clientWidth,root.clientHeight)}}}
 if(gameState==='countdown'){const left=(countdown-performance.now())/1000,n=String(Math.ceil(left));if(left<=0){gameState='run';$('countdown').classList.remove('show')}else if($('countdown').textContent!==n){$('countdown').textContent=n;tone(520,.06,'sine',.025)}}
 if(gameState==='run'){
