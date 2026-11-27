@@ -60,7 +60,7 @@ button.secondary{background:#1b2430;border:1px solid #ff741777;color:#ffb27a;mar
   <div class="pill">РЕКОРД <b id="best">0</b></div>
  </div>
  <div class="hud-bottom">
-  <div class="hud-status"><div id="hint"><b></b><span></span><i class="sw"></i></div><div id="zoneToast" aria-live="polite"><span>РАЙОН 01</span><b>ГОРОДСКИЕ УЛИЦЫ</b></div></div>
+  <div class="hud-status"><div id="hint"><b></b><span></span><i class="sw"></i></div><div id="zoneToast" aria-live="polite"></div></div>
   <div class="hud-actions"><button id="sound" aria-label="Звук"></button><button id="pause" aria-label="Пауза"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="5" height="16" rx="1.5" fill="#fff"/><rect x="14" y="4" width="5" height="16" rx="1.5" fill="#fff"/></svg></button></div>
   <div id="pop"></div>
  </div>
@@ -258,12 +258,9 @@ function removeRoadside(row){
  });
 }
 function buildRoadside(){for(const r of roadsideRows)removeRoadside(r);roadsideRows.length=0;for(let d=20;d<=1000;d+=35)makeRoadsideRow(d,MODE==='endless'?zoneOf(d):d<330?0:d<660?1:2)}buildRoadside();
-const zoneNames=[['РАЙОН 01','ГОРОДСКИЕ УЛИЦЫ'],['РАЙОН 02','СТРОИТЕЛЬНАЯ ЗОНА'],['РАЙОН 03','ТЕХНОЛОГИЧЕСКИЙ КВАРТАЛ']];
 let currentZone=0,zoneToastTimer=0;
 function updateZone(next){
  if(next===currentZone)return;currentZone=next;
- const lp=MODE==='endless'?loopOf(dist):0;const [small,big]=lp>0&&next===0?['КРУГ '+(lp+1),'СКОРОСТЬ РАСТЁТ!']:zoneNames[next];$('zoneToast').innerHTML='<span>'+small+'</span><b>'+big+'</b>';
- $('zoneToast').classList.add('show');zoneToastTimer=2.6;
  setZoneLook(next);
 }
 
