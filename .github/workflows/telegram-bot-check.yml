@@ -1,6 +1,10 @@
 name: Проверка подключения Telegram-бота
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/telegram-bot-check.yml'
 permissions: {}
 jobs:
   get-me:
