@@ -303,7 +303,7 @@ const C={skin:new THREE.MeshStandardMaterial({color:0xf1b28e,roughness:.58,emiss
 const chestLogo=labelTex('ARNI',{arc:true,size:80}),tagLogo=labelTex('ARNI',{w:192,h:96,size:58,bg:'#141316'});
 
 // --- корпус (худи) ---
-rb(player,0,1.47,0,.68,.64,.42,.15,C.black);                       // туловище
+blob(player,0,1.48,0,.365,.39,.235,C.black);                       // туловище
 rb(player,0,1.16,0,.66,.1,.41,.045,C.blackRib);                     // резинка по низу
 rb(player,0,1.31,.195,.4,.19,.06,.03,C.black);                      // карман-кенгуру
 for(const s of [-1,1]){const t=rb(player,s*.18,1.31,.228,.035,.19,.02,.012,C.orange);t.rotation.z=s*.38} // оранжевая окантовка кармана
@@ -312,8 +312,8 @@ decal(player,.07,1.55,.212,.24,.12,chestLogo);                      // лого�
 for(const s of [-1,1])blob(player,s*.29,1.71,0,.13,.1,.18,C.black);
 // капюшон: чёрный воротник, оранжевая подкладка, капюшон на спине
 const hoodGrp=new THREE.Group();hoodGrp.position.set(0,1.83,-.02);player.add(hoodGrp);
-ring(hoodGrp,0,0,0,.2,.075,C.black);ring(hoodGrp,0,.045,0,.16,.035,C.orange);
-const hoodBack=blob(hoodGrp,0,-.145,-.18,.30,.24,.13,C.black);
+ring(hoodGrp,0,0,0,.2,.075,C.black);ring(hoodGrp,0,.057,0,.183,.043,C.orange);
+const hoodBack=blob(hoodGrp,0,-.16,-.19,.32,.26,.14,C.black);
 hoodBack.geometry=SPH.clone();
 const hoodVertices=hoodBack.geometry.attributes.position;
 for(let i=0;i<hoodVertices.count;i++){
@@ -327,7 +327,7 @@ for(const s of [-1,1]){const c=new THREE.Mesh(new THREE.CylinderGeometry(.012,.0
 const neck=new THREE.Mesh(new THREE.CylinderGeometry(.085,.095,.16,14),C.skin);neck.position.set(0,1.93,0);player.add(neck);
 
 // --- голова ---
-const head=new THREE.Group();head.position.set(0,2.25,.01);head.scale.setScalar(1.17);player.add(head);
+const head=new THREE.Group();head.position.set(0,2.25,.01);head.scale.setScalar(1.32);player.add(head);
 {const f=blob(head,0,-.005,0,.19,.24,.2,C.skin);f.geometry=new THREE.SphereGeometry(1,28,22)} // лицо
 for(const s of [-1,1]){blob(head,s*.19,-.005,-.01,.038,.068,.05,C.skin);blob(head,s*.198,-.005,0,.018,.04,.025,C.skinShade)} // уши
 blob(head,0,-.03,.196,.022,.036,.026,C.skinShade);                  // нос
@@ -346,12 +346,22 @@ for(const s of [-1,1])blob(head,s*.175,.07,-.02,.03,.075,.1,C.hair);  // кор�
 for(const [x,y,z,sx,sy,sz,m,rz] of [[-.07,.19,.11,.1,.06,.09,C.hair,.2],[.04,.205,.12,.11,.065,.09,C.hairHi,-.15],[.12,.18,.09,.08,.055,.08,C.hair,-.4],[-.13,.165,.06,.08,.06,.09,C.hairHi,.45],[0,.215,.02,.14,.06,.12,C.hair,0],[.02,.19,.155,.09,.045,.05,C.hairHi,-.1]]){const b=blob(head,x,y,z,sx,sy,sz,m);b.rotation.z=rz}
 
 // Рельеф коротких прядей по дуге от макушки к затылку.
-for(let i=-4;i<=4;i++){
- const t=i/5;
- const lock=blob(head,t*.14,.065-.03*t*t,-.165+.07*t*t,.035,.119,.057,i%3===0?C.hairHi:C.hair);
- lock.rotation.z=.28-t*.52;
- lock.rotation.x=-.38;
+// Мягкие спиральные гребни на поверхности волос сходятся к макушке.
+const crownGeometry=new THREE.SphereGeometry(1,96,32,0,Math.PI*2,0,Math.PI*.56);
+const crownVertex=crownGeometry.attributes.position;
+for(let i=0;i<crownVertex.count;i++){
+ const x=crownVertex.getX(i),y=crownVertex.getY(i),z=crownVertex.getZ(i);
+ const latitude=Math.acos(THREE.MathUtils.clamp(y,-1,1));
+ const ridge=Math.cos(16*Math.atan2(z,x)+11*latitude);
+ const radius=1+.042*ridge*Math.sin(latitude);
+ crownVertex.setXYZ(i,x*radius,y*radius,z*radius);
 }
+crownGeometry.computeVertexNormals();
+const crown=new THREE.Mesh(crownGeometry,C.hair);
+crown.scale.set(.215,.223,.218);
+crown.position.set(0,.042,-.018);
+crown.rotation.x=-.54;
+crown.castShadow=true;head.add(crown);
 
 // --- руки: плечо → локоть → предплечье (манжета, кулак); часы на левой руке ARNI ---
 const armL=new THREE.Group(),armR=new THREE.Group();armL.position.set(-.41,1.74,0);armR.position.set(.41,1.74,0);player.add(armL,armR);
@@ -375,7 +385,8 @@ for(const [g,kn,s] of [[legL,kneeL,-1],[legR,kneeR,1]]){
  rb(g,s*.162,-.2,0,.012,.03,.17,.006,C.orange);rb(g,s*.162,-.28,.083,.012,.15,.012,.004,C.orange);
  decal(g,s*.169,-.215,0,.11,.055,tagLogo,s*Math.PI/2);
  kn.position.set(0,-.46,0);g.add(kn);
- blob(kn,0,-.15,0,.12,.22,.13,C.black);
+ blob(kn,0,-.15,0,.136,.235,.15,C.black);
+ const fold=blob(kn,0,-.28,0,.12,.068,.136,C.black);fold.rotation.z=s*.13;
  const cuff=new THREE.Mesh(new THREE.CylinderGeometry(.085,.095,.09,14),C.blackRib);cuff.position.set(0,-.33,0);kn.add(cuff);
  const shoe=new THREE.Group();shoe.position.set(0,-.44,.05);shoe.scale.setScalar(1.22);kn.add(shoe);
  rb(shoe,0,-.085,.0,.19,.04,.38,.018,C.orange);                     // оранжевая подошва
