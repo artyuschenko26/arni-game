@@ -431,7 +431,7 @@ function updateRunnerImage(time){
  const jumpLift=air?Math.sin((.88-jump)/.88*Math.PI)*1.85:0;
  const lean=THREE.MathUtils.clamp((LX[lane]-player.position.x)*-.11,-.22,.22)+Math.sin(time*3)*.016;
  illustratedRunner.position.set(player.position.x,lift+jumpLift,player.position.z);
- illustratedRunner.scale.set(2.346,3.53855*(low?.52:1),1);
+ illustratedRunner.scale.set(2.1114,3.184695*(low?.52:1),1);
  runMaterial.rotation=lean;
  hoverTrail.position.set(player.position.x,.02,player.position.z);
 }
@@ -676,7 +676,7 @@ animate();
 function fitCamera(){
  const distance=9.15,playerZ=2,rotorZ=7.17,rotorY=2.15;
  // Расширяем поле зрения на узком экране, чтобы ARNI помещался на крайних полосах.
- const halfFovTan=Math.max(.73,3.79/(distance*camera.aspect));
+ const halfFovTan=Math.max(.73,4.35/(distance*camera.aspect));
  const pitch=THREE.MathUtils.degToRad(8);
  camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(halfFovTan));
  const cameraZ=playerZ+distance;
