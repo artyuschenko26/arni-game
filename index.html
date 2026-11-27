@@ -625,6 +625,7 @@ const exhaustTexture=canvasTex(64,256,(ctx,w,h)=>{
 });
 const exhaustLayers=[];
 let hoverBank=0,hoverBend=0,hoverPrevX=null;
+let ridePhase=0,rideWasAirborne=false,rideLanding=0,rideCrouch=0;
 const TRAIL_SEGMENTS=12;
 function bendExhaust(layer,bend,width){
  const attr=layer.o.geometry.attributes.position,uv=layer.o.geometry.attributes.uv;
@@ -653,6 +654,21 @@ for(const x of [-.47,.47]){
 }
 hoverTrail.visible=false;
 const runMaterial=new THREE.SpriteMaterial({transparent:true,alphaTest:.025,depthWrite:false,toneMapped:false});
+// Move the rider above the boot line. The same image keeps the board and boots aligned.
+const riderBalance={value:0},riderCompression={value:0};
+runMaterial.onBeforeCompile=shader=>{
+ shader.uniforms.riderBalance=riderBalance;
+ shader.uniforms.riderCompression=riderCompression;
+ shader.fragmentShader='uniform float riderBalance;\nuniform float riderCompression;\n'+shader.fragmentShader.replace('#include <map_fragment>',`
+  vec2 riderUv=vMapUv;
+  float aboveBoots=smoothstep(.24,.80,riderUv.y);
+  riderUv.x-=riderBalance*aboveBoots;
+  riderUv.y+=riderCompression*aboveBoots;
+  vec4 riderPixel=texture2D(map,riderUv);
+  if(any(lessThan(riderUv,vec2(0.0)))||any(greaterThan(riderUv,vec2(1.0))))discard;
+  diffuseColor*=riderPixel;
+ `);
+};
 const illustratedRunner=new THREE.Sprite(runMaterial);
 illustratedRunner.center.set(.5,.035);
 illustratedRunner.visible=false;scene.add(illustratedRunner);
@@ -671,11 +687,11 @@ function loadRider(src,remember=false){
  },undefined,()=>{spriteStatus.style.display='block';spriteStatus.textContent='Не удалось загрузить спрайт. Выбери файл ещё раз.';spriteButton.style.display='';});
 }
 spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>loadRider(reader.result,true);reader.readAsDataURL(f);};
-function updateRunnerImage(time,dt){
+function updateRunnerImage(dt){
  const riding=['run','paused','countdown','finishing'].includes(gameState)&&!!runMaterial.map;
  player.visible=!riding;illustratedRunner.visible=hoverTrail.visible=riding;
  riderShadow.visible=riding;
- if(!riding){hoverBank=0;hoverBend=0;hoverPrevX=null;return;}
+ if(!riding){hoverBank=0;hoverBend=0;hoverPrevX=null;ridePhase=0;rideWasAirborne=false;rideLanding=0;rideCrouch=0;return;}
  const moving=gameState==='run'||gameState==='finishing';
  const motionDt=moving?Math.max(.001,dt):0;
  const vx=hoverPrevX===null||!moving?0:(player.position.x-hoverPrevX)/motionDt;
@@ -685,18 +701,27 @@ function updateRunnerImage(time,dt){
  hoverBank=THREE.MathUtils.damp(hoverBank,targetBank,13,motionDt);
  hoverBend=THREE.MathUtils.damp(hoverBend,targetBend,8,motionDt);
  const low=slide>0,air=jump>0;
- const lift=low?.015:.045+Math.sin(time*4)*.045;
+ if(moving){
+  ridePhase+=dt;
+  if(rideWasAirborne&&!air)rideLanding=1;
+  else rideLanding=THREE.MathUtils.damp(rideLanding,0,12,dt);
+  rideCrouch=THREE.MathUtils.damp(rideCrouch,low?1:0,24,dt);
+  rideWasAirborne=air;
+ }
+ const lift=THREE.MathUtils.lerp(.075+Math.sin(ridePhase*4)*.045,.015,rideCrouch);
  const jumpLift=air?Math.sin((.88-jump)/.88*Math.PI)*1.85:0;
- const lean=hoverBank+Math.sin(time*3)*.016;
+ const lean=hoverBank+Math.sin(ridePhase*3)*.016;
+ riderBalance.value=hoverBank*.071+Math.sin(ridePhase*2.8)*.010;
+ riderCompression.value=rideLanding*.046+rideCrouch*.014;
  illustratedRunner.position.set(player.position.x,lift+jumpLift,player.position.z);
- illustratedRunner.scale.set(2.1114,3.184695*(low?.52:1),1);
+ illustratedRunner.scale.set(2.1114,3.184695*THREE.MathUtils.lerp(1,.52,rideCrouch),1);
  runMaterial.rotation=lean;
  hoverTrail.position.set(player.position.x,.02,player.position.z);
  const exhaustSpeed=THREE.MathUtils.clamp((speed-19)/21,0,1);
  const exhaustHeight=Math.max(0,lift+jumpLift);
  const exhaustFade=1/(1+exhaustHeight*.8);
  for(const l of exhaustLayers){
-  const pulse=.94+.06*Math.sin(time*15+l.phase);
+  const pulse=.94+.06*Math.sin(ridePhase*15+l.phase);
   const length=l.length*(.44+.74*exhaustSpeed)*pulse;
   l.o.scale.set(l.width*(1+exhaustHeight*.13),length,1);
   l.o.position.x=l.x;
@@ -706,7 +731,7 @@ function updateRunnerImage(time,dt){
  }
  for(const p of exhaustPools){
   p.scale.set(1.05+exhaustHeight*.25,1.9+exhaustHeight*.45,1);
-  p.material.opacity=(.40+.26*exhaustSpeed)*exhaustFade*(.95+.05*Math.sin(time*12));
+  p.material.opacity=(.40+.26*exhaustSpeed)*exhaustFade*(.95+.05*Math.sin(ridePhase*12));
  }
  const shadowHeight=Math.max(0,lift+jumpLift);
  riderShadow.position.set(player.position.x,.006,player.position.z);
@@ -1075,7 +1100,7 @@ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.positio
  for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=176}
  for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z-=180}
 }
-if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}updateRunnerImage(t,dt);const droneRiding=['run','paused','countdown','finishing'].includes(gameState);robot.userData.body.position.z=droneRiding?-.55:0;robot.userData.body.position.y=droneRiding?-.18:0;robot.userData.cone.visible=!droneRiding;renderer.render(scene,camera)}
+if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}updateRunnerImage(dt);const droneRiding=['run','paused','countdown','finishing'].includes(gameState);robot.userData.body.position.z=droneRiding?-.55:0;robot.userData.body.position.y=droneRiding?-.18:0;robot.userData.cone.visible=!droneRiding;renderer.render(scene,camera)}
 animate();
 // Камера подстраивается под ширину экрана: на узких телефонах (в т.ч. в Telegram) все три полосы и ARNI остаются в кадре
 function fitCamera(){
