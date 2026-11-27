@@ -422,6 +422,7 @@ spriteButton.onclick=()=>spriteInput.click();
 function loadRider(src,remember=false){
  new THREE.TextureLoader().load(src,texture=>{
   texture.colorSpace=THREE.SRGBColorSpace;
+  texture.repeat.x=-1;texture.offset.x=1;texture.updateMatrix();
   if(runMaterial.map)runMaterial.map.dispose();
   runMaterial.map=texture;runMaterial.needsUpdate=true;
   $('start').disabled=false;$('start').textContent='НАЧАТЬ ПОБЕГ';
@@ -440,7 +441,7 @@ function updateRunnerImage(time){
  const jumpLift=air?Math.sin((.88-jump)/.88*Math.PI)*1.85:0;
  const lean=THREE.MathUtils.clamp((LX[lane]-player.position.x)*-.11,-.22,.22)+Math.sin(time*3)*.016;
  illustratedRunner.position.set(player.position.x,lift+jumpLift,player.position.z);
- illustratedRunner.scale.set(-2.1114,3.184695*(low?.52:1),1);
+ illustratedRunner.scale.set(2.1114,3.184695*(low?.52:1),1);
  runMaterial.rotation=lean;
  hoverTrail.position.set(player.position.x,.02,player.position.z);
  const shadowHeight=Math.max(0,lift+jumpLift);
