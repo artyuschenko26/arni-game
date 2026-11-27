@@ -194,7 +194,7 @@ function paverGeometry(w,d,h){
  const uv=[];for(let i=0;i<v.length;i+=3)uv.push(v[i]/w+.5,v[i+2]/d+.5);geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
  const flat=geo.toNonIndexed();flat.computeVertexNormals();geo.dispose();return flat;
 }
-const paverG=paverGeometry(.705,.955,.075),borderG=paverGeometry(.15,.955,.085);
+const paverG=paverGeometry(.65,.955,.075),borderG=paverGeometry(.15,.955,.085);
 const stoneColors=[0xc9baa8,0xd4c6b5,0xd8cbbb,0xcfc1ae,0xe0d4c3].map(c=>new THREE.Color(c));
 const borderColors=[0xafa08b,0xb8a894,0xc5b69f].map(c=>new THREE.Color(c));
 const paverDummy=new THREE.Object3D();
@@ -205,10 +205,10 @@ for(let j=0;j<11;j++){
  for(const side of [-1,1])for(let row=0;row<16;row++){
   const z=-7.5+row;
   for(let col=0;col<4;col++){
-   paverDummy.position.set(side*(7.34+col*.745),.165,z);paverDummy.updateMatrix();
+   paverDummy.position.set(side*(7.33+col*.69),.165,z);paverDummy.updateMatrix();
    stones.setMatrixAt(n,paverDummy.matrix);stones.setColorAt(n++,stoneColors[(j*19+row*7+col*13+(side>0?2:0))%5]);
   }
-  for(const x of [6.91,9.78]){
+  for(const x of [6.91,9.83]){
    paverDummy.position.set(side*x,.166,z);paverDummy.updateMatrix();borders.setMatrixAt(k,paverDummy.matrix);borders.setColorAt(k++,borderColors[(row+j+(side>0?1:0))%3]);
   }
  }
