@@ -427,7 +427,7 @@ function updateRunnerImage(time){
  player.visible=!riding;illustratedRunner.visible=hoverTrail.visible=riding;
  if(!riding)return;
  const low=slide>0,air=jump>0;
- const lift=low?.055:.24+Math.sin(time*4)*.045;
+ const lift=low?.015:.14+Math.sin(time*4)*.045;
  const jumpLift=air?Math.sin((.88-jump)/.88*Math.PI)*1.85:0;
  const lean=THREE.MathUtils.clamp((LX[lane]-player.position.x)*-.11,-.22,.22)+Math.sin(time*3)*.016;
  illustratedRunner.position.set(player.position.x,lift+jumpLift,player.position.z);
