@@ -45,3 +45,19 @@ export async function POST(request) {
     },
   });
 }
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
+    return res.status(405).end();
+  }
+  const request = new Request('https://localhost/api/telegram', {
+    method: 'POST',
+    headers: req.headers,
+    body: typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? null),
+  });
+  const response = await POST(request);
+  const contentType = response.headers.get('content-type');
+  if (contentType) res.setHeader('content-type', contentType);
+  return res.status(response.status).send(await response.text());
+}
