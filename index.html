@@ -187,6 +187,46 @@ for(let side of [-1,1])for(let i=0;i<12;i++){
  const hvac=box(tower,side*.55,h+.42,-.8,.82,.55,1.15,mat(0x343e49,.55,.35));box(tower,side*.55,h+.71,-.8,.64,.035,.86,metalTrim);
  for(let q=-1;q<=1;q++)box(tower,side*.55+q*.2,h+.44,-.2,.045,.34,.045,metalTrim);
  if(i%3===0){box(tower,-side*.7,h+1.05,-1.4,.07,1.25,.07,metalTrim);glow(tower,-side*.7,h+1.65,-1.4,.85,NEON[i%3],.42)}
+ // V16: varied architectural silhouettes and illuminated street-facing facades.
+ const style=(i+(side>0?1:0))%4;
+ const accent=new THREE.MeshBasicMaterial({color:NEON[(i+(side>0?1:0))%3]});
+ const glassTex=canvasTex(256,512,(c,W,H)=>{
+  c.fillStyle='#111c29';c.fillRect(0,0,W,H);
+  const cols=style===0?4:style===1?6:5,rows=Math.max(4,Math.floor(h/1.35));
+  const cw=W/cols,rh=H/rows;
+  for(let row=0;row<rows;row++)for(let col=0;col<cols;col++){
+   const lit=(row*17+col*11+i*7+(side>0?3:0))%13;
+   c.fillStyle=lit<3?'#ffc487':lit<7?'#50b5df':lit===7?'#b8d5ef':'#253548';
+   c.fillRect(col*cw+cw*.16,row*rh+rh*.15,cw*.68,rh*.70);
+   c.fillStyle=lit<8?'#d2e8fa66':'#41536b';
+   c.fillRect(col*cw+cw*.16,row*rh+rh*.15,cw*.68,Math.max(1,rh*.06));
+  }
+  c.fillStyle='#435369';for(let row=0;row<rows;row+=3)c.fillRect(0,row*rh,W,2);
+ });
+ const streetGlass=new THREE.Mesh(new THREE.PlaneGeometry(5.58,Math.max(1,h-7.25)),new THREE.MeshBasicMaterial({map:glassTex,color:0xbad1e8}));
+ streetGlass.position.set(-side*(w/2+.033),7.05+Math.max(1,h-7.25)*.5,0);
+ if(h>8.3){streetGlass.rotation.y=side>0?-Math.PI/2:Math.PI/2;tower.add(streetGlass)}else{streetGlass.geometry.dispose();streetGlass.material.dispose();glassTex.dispose()}
+ const inner=-side*(w/2+.07);
+ for(const zz of [-2.84,2.84]){
+  box(tower,inner,h*.5,zz,.12,h-.24,.12,metalTrim);
+  box(tower,inner-side*.075,h*.57,zz,.045,h*.63,.038,accent).castShadow=false;
+ }
+ if(style===0){
+  box(tower,0,h+.64,0,w*.7,1.12,4.4,facade);
+  box(tower,0,h+1.23,0,w*.73,.10,4.5,accent).castShadow=false;
+ }else if(style===1){
+  for(const zz of [-1.4,1.4])box(tower,inner,h*.59,zz,.11,h*.61,.075,metalTrim);
+  box(tower,0,h+.34,0,w+.3,.15,6.25,metalTrim);
+  box(tower,0,h+.44,3.14,w+.21,.065,.07,accent).castShadow=false;
+ }else if(style===2){
+  for(const yy of [h*.48,h*.77])if(yy>6.9){
+   box(tower,inner,yy,0,.20,.14,5.9,metalTrim);
+   box(tower,inner-side*.12,yy,0,.04,.055,5.65,accent).castShadow=false;
+  }
+ }else{
+  box(tower,0,h+.67,0,w*.55,1.16,3.1,facade);
+  box(tower,0,h+1.28,1.57,w*.52,.06,.08,accent).castShadow=false;
+ }
  tower.scale.set(1.12,1.12,1);scene.add(tower);buildings.push(tower);
 }
 const POOL_G=new THREE.CircleGeometry(1.5,28),POOL_M=new THREE.MeshBasicMaterial({map:GLOW,color:0xff8a3c,transparent:true,opacity:.3,blending:THREE.AdditiveBlending,depthWrite:false});const lamps=[];const POLE=mat(0x2a2e35,.4,.6);
