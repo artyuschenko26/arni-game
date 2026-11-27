@@ -409,7 +409,37 @@ const shadowTexture=canvasTex(128,128,(ctx,w,h)=>{
 const riderShadow=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,opacity:.8,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
 riderShadow.rotation.x=-Math.PI/2;riderShadow.visible=false;riderShadow.renderOrder=1;scene.add(riderShadow);
 
-for(const x of [-.54,.54])streak(hoverTrail,x,0,3.8,.26,0xff7818,.5);
+// V12: layered exhaust and local road illumination, with independent materials.
+const exhaustTexture=canvasTex(64,256,(ctx,w,h)=>{
+ const g=ctx.createLinearGradient(0,0,0,h);
+ g.addColorStop(0,'rgba(255,255,255,0)');
+ g.addColorStop(.13,'rgba(255,255,255,.92)');
+ g.addColorStop(.42,'rgba(255,255,255,.58)');
+ g.addColorStop(1,'rgba(255,255,255,0)');
+ ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+ ctx.globalCompositeOperation='destination-in';
+ const edge=ctx.createLinearGradient(0,0,w,0);
+ edge.addColorStop(0,'rgba(255,255,255,0)');edge.addColorStop(.5,'rgba(255,255,255,1)');edge.addColorStop(1,'rgba(255,255,255,0)');
+ ctx.fillStyle=edge;ctx.fillRect(0,0,w,h);
+});
+const exhaustLayers=[];
+function exhaustLayer(x,width,length,color,opacity,phase){
+ const m=new THREE.MeshBasicMaterial({map:exhaustTexture,color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
+ const o=new THREE.Mesh(STREAK_G,m);o.rotation.x=-Math.PI/2;o.rotation.z=Math.PI;o.renderOrder=2;
+ o.position.set(x,.012,length*.5-.12);o.scale.set(width,length,1);hoverTrail.add(o);
+ exhaustLayers.push({o,x,width,length,opacity,phase});
+}
+for(const x of [-.47,.47]){
+ exhaustLayer(x,.76,4.2,0xff6812,.55,x);
+ exhaustLayer(x,.23,4.65,0xffa525,.92,x+1);
+ exhaustLayer(x,.085,3.7,0xffe6a1,.95,x+2);
+ exhaustLayer(x+(x<0?-.19:.19),.24,3.65,0x33b8ff,.57,x+3);
+}
+const exhaustPools=[];
+for(const x of [-.47,.47]){
+ const m=new THREE.MeshBasicMaterial({map:GLOW,color:0xff7818,transparent:true,opacity:.66,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
+ const o=new THREE.Mesh(STREAK_G,m);o.rotation.x=-Math.PI/2;o.renderOrder=2;o.position.set(x,.009,.35);o.scale.set(1.05,1.9,1);hoverTrail.add(o);exhaustPools.push(o);
+}
 hoverTrail.visible=false;
 const runMaterial=new THREE.SpriteMaterial({transparent:true,alphaTest:.03,depthWrite:false});
 const illustratedRunner=new THREE.Sprite(runMaterial);
@@ -443,6 +473,21 @@ function updateRunnerImage(time){
  illustratedRunner.scale.set(2.1114,3.184695*(low?.52:1),1);
  runMaterial.rotation=lean;
  hoverTrail.position.set(player.position.x,.02,player.position.z);
+ const exhaustSpeed=THREE.MathUtils.clamp((speed-19)/21,0,1);
+ const exhaustHeight=Math.max(0,lift+jumpLift);
+ const exhaustFade=1/(1+exhaustHeight*.8);
+ for(const l of exhaustLayers){
+  const pulse=.94+.06*Math.sin(time*15+l.phase);
+  const length=l.length*(.82+.36*exhaustSpeed)*pulse;
+  l.o.scale.set(l.width*(1+exhaustHeight*.13),length,1);
+  l.o.position.x=l.x;
+  l.o.position.z=length*.5-.12;
+  l.o.material.opacity=l.opacity*pulse*exhaustFade;
+ }
+ for(const p of exhaustPools){
+  p.scale.set(1.05+exhaustHeight*.25,1.9+exhaustHeight*.45,1);
+  p.material.opacity=.66*exhaustFade*(.95+.05*Math.sin(time*12));
+ }
  const shadowHeight=Math.max(0,lift+jumpLift);
  riderShadow.position.set(player.position.x,.008,player.position.z);
  riderShadow.rotation.z=lean*.45;
