@@ -401,6 +401,14 @@ for(const [g,kn,s] of [[legL,kneeL,-1],[legR,kneeR,1]]){
 }
 // Approved combined rider and board artwork. No duplicate geometry.
 const hoverTrail=new THREE.Group();scene.add(hoverTrail);
+const shadowTexture=canvasTex(128,128,(ctx,w,h)=>{
+ const g=ctx.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);
+ g.addColorStop(0,'rgba(0,0,0,0.88)');g.addColorStop(.32,'rgba(0,0,0,0.68)');g.addColorStop(.67,'rgba(0,0,0,0.22)');g.addColorStop(1,'rgba(0,0,0,0)');
+ ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+});
+const riderShadow=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,opacity:.8,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));
+riderShadow.rotation.x=-Math.PI/2;riderShadow.visible=false;riderShadow.renderOrder=1;scene.add(riderShadow);
+
 for(const x of [-.54,.54])streak(hoverTrail,x,0,3.8,.26,0xff7818,.5);
 hoverTrail.visible=false;
 const runMaterial=new THREE.SpriteMaterial({transparent:true,alphaTest:.03,depthWrite:false});
@@ -425,6 +433,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
 function updateRunnerImage(time){
  const riding=['run','paused','countdown','finishing'].includes(gameState)&&!!runMaterial.map;
  player.visible=!riding;illustratedRunner.visible=hoverTrail.visible=riding;
+ riderShadow.visible=riding;
  if(!riding)return;
  const low=slide>0,air=jump>0;
  const lift=low?.015:.045+Math.sin(time*4)*.045;
@@ -434,6 +443,12 @@ function updateRunnerImage(time){
  illustratedRunner.scale.set(2.1114,3.184695*(low?.52:1),1);
  runMaterial.rotation=lean;
  hoverTrail.position.set(player.position.x,.02,player.position.z);
+ const shadowHeight=Math.max(0,lift+jumpLift);
+ riderShadow.position.set(player.position.x,.008,player.position.z);
+ riderShadow.rotation.z=lean*.45;
+ riderShadow.scale.set(2.45+shadowHeight*.45,1.3+shadowHeight*.36,1);
+ riderShadow.material.opacity=.88/(1+shadowHeight*.65);
+
 }
 // --- финишные ворота «безопасная зона» на 1000 м ---
 const gate=new THREE.Group();scene.add(gate);gate.visible=false;
