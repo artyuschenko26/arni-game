@@ -160,9 +160,31 @@ const asphaltTex=canvasTex(512,512,(c,w,h)=>{
 asphaltTex.wrapS=asphaltTex.wrapT=THREE.RepeatWrapping;asphaltTex.repeat.set(2,15);asphaltTex.minFilter=THREE.LinearMipmapLinearFilter;asphaltTex.magFilter=THREE.LinearFilter;asphaltTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 roadMat.map=asphaltTex;roadMat.bumpMap=null;roadMat.needsUpdate=true;
 const road=box(scene,0,-.18,-80,9,.35,180,roadMat);road.castShadow=false;road.receiveShadow=false;
-const sidewalkMat=mat(0xb7a18b,.88,.06),curbMat=mat(0x8c817b,.68,.18),drainMat=mat(0x10151b,.7,.25);
-for(const side of [-1,1]){box(scene,side*5.55,-.12,-80,1.05,.22,180,sidewalkMat);box(scene,side*5.02,-.025,-80,.16,.22,180,curbMat);for(let z=-164;z<8;z+=8){box(scene,side*5.53,.026,z,.92,.035,3.6,mat(0x414650,.9,.02));box(scene,side*4.78,.132,z,.12,.045,.28,drainMat);for(let k=0;k<3;k++)box(scene,side*4.78,.162,z-.08+k*.08,.13,.012,.018,curbMat)}}
-const CURB=new THREE.MeshBasicMaterial({color:0x42ebdf,toneMapped:false});for(const side of [-1,1]){box(scene,side*4.85,-.02,-80,.55,.28,180,mat(0x8c817b,.65,.25));box(scene,side*4.55,.1,-80,.14,.08,180,CURB);const sw=box(scene,side*7.2,-.05,-80,4.6,.22,180,mat(0xc99c6b,.8,.08));sw.castShadow=false}
+// V18.2: raised pedestrian promenade; separate paved walking and furnishing zones.
+const sidewalkTex=canvasTex(512,512,(c,w,h)=>{
+ c.fillStyle='#b8a99a';c.fillRect(0,0,w,h);
+ for(let row=0;row<4;row++)for(let col=-1;col<4;col++){
+  const xx=col*128+(row%2)*64,yy=row*128,v=(row*7+col*13+29)%5;
+  c.fillStyle=['#d0c3b0','#c8bcaa','#cfc0ad','#d5c9b8','#cbbdab'][Math.abs(v)];c.fillRect(xx+2,yy+2,124,124);
+  c.fillStyle='rgba(255,255,255,.14)';c.fillRect(xx+3,yy+3,122,2);
+ }
+});
+sidewalkTex.wrapS=sidewalkTex.wrapT=THREE.RepeatWrapping;sidewalkTex.repeat.set(1,36);sidewalkTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());sidewalkTex.minFilter=THREE.LinearMipmapLinearFilter;
+const sidewalkMat=new THREE.MeshStandardMaterial({map:sidewalkTex,color:0xe9e1d5,roughness:.88,metalness:0});
+const curbMat=mat(0xb4a69a,.74,.08),furnishingMat=mat(0x696b6b,.83,.08),edgeStone=mat(0xe4cfb3,.80,.02);
+const CURB=new THREE.MeshBasicMaterial({color:0x42ebdf,toneMapped:false});
+const walkLines=new THREE.MeshBasicMaterial({color:0xd9bd93,toneMapped:false});
+for(const side of [-1,1]){
+ // Distinct lateral bands; no duplicate surfaces at the same elevation.
+ box(scene,side*4.85,-.02,-80,.55,.28,180,curbMat).castShadow=false;
+ box(scene,side*4.55,.10,-80,.14,.08,180,CURB).castShadow=false;
+ box(scene,side*5.20,.055,-80,.18,.27,180,edgeStone).castShadow=false;
+ box(scene,side*6.13,.025,-80,1.68,.22,180,furnishingMat).castShadow=false;
+ box(scene,side*8.46,.025,-80,2.98,.22,180,sidewalkMat).castShadow=false;
+ box(scene,side*7.01,.14,-80,.10,.045,180,edgeStone).castShadow=false;
+ box(scene,side*7.22,.14,-80,.055,.018,180,walkLines).castShadow=false;
+ box(scene,side*9.89,.025,-80,.14,.28,180,curbMat).castShadow=false;
+}
 const DASH=new THREE.MeshStandardMaterial({color:0xcfd6dc,emissive:0x6d7a86,emissiveIntensity:.35,roughness:.5});const roadDashes=[];for(const x of [-1.5,1.5])for(let z=-164;z<12;z+=8)roadDashes.push(box(scene,x,.012,z,.16,.025,4.2,DASH));
 const roadEdges=[];for(let side of [-1,1])for(let z=-168;z<12;z+=12)roadEdges.push(box(scene,side*4.05,.025,z,.08,.04,2.4,orange));
 const buildings=[];
@@ -231,15 +253,33 @@ const palmG=new THREE.BufferGeometry();{
  const v=[],idx=[];for(let i=0;i<=10;i++){const t=i/10,x=t*2.15,y=.75*Math.sin(t*Math.PI)-.68*t*t,w=.30*Math.sin(Math.PI*t)+.014;v.push(x,y,-w,x,y+.05,0,x,y,w);if(i<10){const n=i*3;idx.push(n,n+3,n+1,n+1,n+3,n+4,n+1,n+4,n+2,n+2,n+4,n+5)}}palmG.setAttribute('position',new THREE.Float32BufferAttribute(v,3));palmG.setIndex(idx);palmG.computeVertexNormals();
 }
 const lamps=[];
+const planterStone=mat(0xb7a18a,.75,.08),planterRim=mat(0xe2c6a5,.61,.12),planterSoil=mat(0x605140,.96),benchWood=mat(0xa46e3e,.66,.05),streetMetal=mat(0x36434a,.48,.35);
+const streetShadowTex=canvasTex(128,128,(c,w,h)=>{const g=c.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);g.addColorStop(0,'rgba(0,0,0,.62)');g.addColorStop(.5,'rgba(0,0,0,.27)');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,w,h)});
+const streetShadowM=new THREE.MeshBasicMaterial({map:streetShadowTex,transparent:true,opacity:.6,depthWrite:false,toneMapped:false});
+function furnitureShadow(g,x,z,w,d){const m=new THREE.Mesh(STREAK_G,streetShadowM);m.rotation.x=-Math.PI/2;m.position.set(x,.148,z);m.scale.set(w,d,1);g.add(m);}
+const potG=new THREE.CylinderGeometry(.63,.54,.52,24),soilG=new THREE.CircleGeometry(.53,24),potRimG=new THREE.TorusGeometry(.61,.055,8,24);
+const shrubG=new THREE.IcosahedronGeometry(1,1),shrubM=[mat(0x52713a,.85),mat(0x769749,.85)];
+function streetBench(g,x,z,side){
+ furnitureShadow(g,x,z,1.05,2.45);
+ for(const dz of [-.65,.65]){box(g,x,.39,z+dz,.48,.48,.14,streetMetal);box(g,x+side*.20,.72,z+dz,.08,.56,.11,streetMetal);}
+ for(let k=0;k<3;k++)box(g,x+(k-1)*.14,.66,z,.12,.08,1.8,benchWood);
+ for(let k=0;k<2;k++)box(g,x+side*.26,.91+k*.17,z,.075,.13,1.8,benchWood);
+}
+function streetBin(g,x,z){furnitureShadow(g,x,z,.65,.65);box(g,x,.48,z,.43,.67,.43,streetMetal);box(g,x,.86,z,.46,.085,.46,planterRim);box(g,x,.72,z+.22,.23,.09,.03,desertDark);}
 for(let z=-160;z<16;z+=16)for(const side of [-1,1]){
- const g=new THREE.Group();g.position.set(side*5.65,0,z);
- box(g,0,1.9,0,.13,3.8,.13,desertDark);
+ const g=new THREE.Group();g.position.set(side*5.72,0,z);furnitureShadow(g,0,0,.56,.58);
+ box(g,0,.23,0,.32,.18,.32,streetMetal);box(g,0,2.02,0,.13,3.8,.13,desertDark);
  const lamp=new THREE.Mesh(new THREE.CylinderGeometry(.31,.18,.40,6),desertOrange);lamp.position.y=3.84;g.add(lamp);box(g,0,4.08,0,.60,.09,.60,desertDark);
  glow(g,0,3.84,0,1.9,0xffa34a,.54);const ref=streak(g,-side*1.3,0,5,.9,0xff9a38,.31);ref.position.y=.025;
  const banner=new THREE.Mesh(new THREE.PlaneGeometry(.76,1.24),new THREE.MeshBasicMaterial({map:towerSigns[2],side:THREE.DoubleSide,toneMapped:false}));banner.position.set(0,2.35,.17);g.add(banner);
- const palm=new THREE.Group();palm.position.set(side*1.22,0,7.2);g.add(palm);
- const pot=new THREE.Mesh(new THREE.CylinderGeometry(.75,.59,.65,18),desertGold);pot.position.y=.33;palm.add(pot);
- const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.10,.19,3.6,10),palmTrunk);trunk.position.y=2.36;palm.add(trunk);
+ const palm=new THREE.Group();palm.position.set(side*.61,.135,7.2);g.add(palm);
+ furnitureShadow(g,side*.61,7.2,1.75,1.75);
+ const pot=new THREE.Mesh(potG,planterStone);pot.position.y=.26;palm.add(pot);
+ const soil=new THREE.Mesh(soilG,planterSoil);soil.rotation.x=-Math.PI/2;soil.position.y=.525;palm.add(soil);
+ const rim=new THREE.Mesh(potRimG,planterRim);rim.rotation.x=Math.PI/2;rim.position.y=.53;palm.add(rim);
+ const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.10,.19,3.6,10),palmTrunk);trunk.position.y=2.27;palm.add(trunk);
+ for(let k=0;k<4;k++){const a=k*Math.PI/2;const shrub=new THREE.Mesh(shrubG,shrubM[k%2]);shrub.position.set(Math.cos(a)*.37,.59,Math.sin(a)*.37);shrub.scale.set(.19,.13,.19);palm.add(shrub);}
+ if((Math.round(z/16)+20+(side>0?1:0))%2===0){streetBench(g,side*.57,-4.1,side);streetBin(g,side*.55,-2.62);}
  for(let i=0;i<14;i++){const leaf=new THREE.Mesh(palmG,i%3===0?palmLeafLight:palmLeafM);leaf.position.y=4.16;leaf.rotation.y=i*Math.PI*2/14;leaf.rotation.z=i%2===0?.23:-.18;leaf.scale.setScalar(i%2===0?.78:1);palm.add(leaf);}
  g.traverse(o=>{if(o.isMesh)o.castShadow=false});scene.add(g);lamps.push(g);
 }
@@ -270,51 +310,11 @@ for(const [x,h,w] of [[-45,40,9],[-30,55,7],[-18,68,6],[9,78,7],[26,61,8],[42,50
 const sunDisk=new THREE.Mesh(new THREE.CircleGeometry(9.8,48),new THREE.MeshBasicMaterial({color:0xffedb0,fog:false,toneMapped:false}));sunDisk.position.set(-20,47,-225);scene.add(sunDisk);
 const sunHalo=glow(scene,-20,47,-226,41,0xffcf78,.25);sunHalo.material.fog=false;
 const roadsideRows=[];
-const zoneMaterials=[
- {base:mat(0x796c61,.68,.25),accent:mat(0xff7417,.55,.08),glass:mat(0x527487,.35,.25)},
- {base:mat(0x9d7958,.74,.13),accent:mat(0xff8a22,.55,.05),glass:mat(0x68747a,.5,.12)},
- {base:mat(0x4b6972,.45,.25),accent:mat(0xff7417,.4,.25),glass:mat(0x4c8497,.25,.4)}
-];
+// Legacy roadside modules are replaced by the repeating, coherent promenade above.
 function makeRoadsideRow(distance,zone){
- const g=new THREE.Group(),m=zoneMaterials[zone];
- for(const side of [-1,1]){
-  const x=side*7.35;
-  if(zone===0){
-   box(g,x,.75,0,.32,1.5,.32,m.base);box(g,x,.28,.19,.62,.28,.12,m.accent);box(g,x,1.28,.18,.48,.22,.08,m.glass);
-   if(distance%80<1){box(g,side*7.4,2.8,0,.22,5.6,.22,m.base);box(g,side*7.4,5.5,0,1.4,.16,.5,m.accent)}
-  }else if(zone===1){
-   box(g,x,.62,0,1.0,1.24,.28,m.base);
-   for(let k=-1;k<=1;k++){const stripe=box(g,x+k*.3,.62,.17,.16,1.1,.035,m.accent);stripe.rotation.z=-.25}
-   if(distance%70<1){box(g,side*8.2,3.1,0,.18,6.2,.18,m.base);box(g,side*7.1,6.1,0,2.3,.18,.24,m.accent);box(g,side*7.7,5.55,0,.16,1.1,.16,m.base)}
-  }else{
-   box(g,x,1.65,0,.55,3.3,.55,m.base);box(g,x,1.8,.3,.34,2.5,.08,m.glass);box(g,x,3.42,0,.8,.12,.8,m.accent);
-   const ring=new THREE.Mesh(new THREE.TorusGeometry(.72,.045,8,24),m.accent);ring.position.set(x,2.0,.1);g.add(ring);
-  }
- }
- // мелкие уличные объекты по районам: болларды, кабельные короба, сигнальные стойки и техно-модули
- for(const side of [-1,1]){
-  const px=side*7.55;
-  if(zone===0){
-   const post=box(g,px,.52,0,.22,1.04,.22,mat(0x293440,.48,.35));box(g,px,.94,.12,.24,.12,.08,orange);glow(g,px,.95,.2,.62,0xff7417,.28);
-   if(distance%105<1){const planter=box(g,side*6.95,.34,-1.4,1.05,.68,.72,mat(0x343a40));for(let n=0;n<5;n++){const leaf=new THREE.Mesh(new THREE.ConeGeometry(.13,.72,5),mat(0x294b42));leaf.position.set(side*6.95+(n-2)*.15,.88,-1.4);g.add(leaf)}}
-  }else if(zone===1){
-   for(let n=0;n<3;n++){const cone=new THREE.Mesh(new THREE.ConeGeometry(.22,.68,6),m.accent);cone.position.set(side*(6.75+n*.52),.34,-.9+n*.8);cone.castShadow=true;g.add(cone);box(g,side*(6.75+n*.52),.08,-.9+n*.8,.48,.12,.48,mat(0x242a31))}
-   box(g,side*7.65,.72,-1.7,.65,1.44,.5,mat(0x5a5147));box(g,side*7.65,1.48,-1.7,.78,.12,.62,m.accent);
-  }else{
-   const node=box(g,px,1.1,-1.1,.7,2.2,.7,mat(0x172b38,.32,.55));box(g,px,1.12,-.72,.48,1.35,.06,m.glass);glow(g,px,1.2,-.62,1.35,0x37d6ff,.35);
-   const ring=new THREE.Mesh(new THREE.TorusGeometry(.42,.035,8,20),m.accent);ring.position.set(px,2.35,-1.1);g.add(ring);
-  }
- }
- g.userData.distance=distance;g.position.z=2-distance*1.05;scene.add(g);roadsideRows.push(g);
+ const g=new THREE.Group();g.userData.distance=distance;g.position.z=2-distance*1.05;scene.add(g);roadsideRows.push(g);
 }
-const sharedRoadsideMaterials=new Set([orange,...zoneMaterials.flatMap(Object.values)]);
-function removeRoadside(row){
- scene.remove(row);
- row.traverse(object=>{
-  if(object.isMesh)object.geometry.dispose();
-  if(object.material&&!sharedRoadsideMaterials.has(object.material))object.material.dispose();
- });
-}
+function removeRoadside(row){scene.remove(row);}
 function buildRoadside(){for(const r of roadsideRows)removeRoadside(r);roadsideRows.length=0;for(let d=20;d<=1000;d+=35)makeRoadsideRow(d,MODE==='endless'?zoneOf(d):d<330?0:d<660?1:2)}buildRoadside();
 let currentZone=0,zoneToastTimer=0;
 function updateZone(next){
@@ -860,6 +860,7 @@ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.positio
  for(let b of buildings){b.position.z+=speed*dt;if(b.position.z>22)b.position.z-=176}
  for(let b of bridges){b.position.z+=speed*dt;if(b.position.z>30)b.position.z-=220}
  asphaltTex.offset.y=(asphaltTex.offset.y-speed*dt*15/180)%1;
+ sidewalkTex.offset.y=(sidewalkTex.offset.y-speed*dt*36/180)%1;
  for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=176}
  for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z-=180}
 }
