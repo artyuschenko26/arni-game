@@ -160,30 +160,60 @@ const asphaltTex=canvasTex(512,512,(c,w,h)=>{
 asphaltTex.wrapS=asphaltTex.wrapT=THREE.RepeatWrapping;asphaltTex.repeat.set(2,15);asphaltTex.minFilter=THREE.LinearMipmapLinearFilter;asphaltTex.magFilter=THREE.LinearFilter;asphaltTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 roadMat.map=asphaltTex;roadMat.bumpMap=null;roadMat.needsUpdate=true;
 const road=box(scene,0,-.18,-80,9,.35,180,roadMat);road.castShadow=false;road.receiveShadow=false;
-// V18.2: raised pedestrian promenade; separate paved walking and furnishing zones.
-const sidewalkTex=canvasTex(512,512,(c,w,h)=>{
- c.fillStyle='#b8a99a';c.fillRect(0,0,w,h);
- for(let row=0;row<4;row++)for(let col=-1;col<4;col++){
-  const xx=col*128+(row%2)*64,yy=row*128,v=(row*7+col*13+29)%5;
-  c.fillStyle=['#d0c3b0','#c8bcaa','#cfc0ad','#d5c9b8','#cbbdab'][Math.abs(v)];c.fillRect(xx+2,yy+2,124,124);
-  c.fillStyle='rgba(255,255,255,.14)';c.fillRect(xx+3,yy+3,122,2);
- }
+// V18.3: real raised stone pavers, recycled with the city, no scrolling sidewalk UVs.
+const stoneTex=canvasTex(128,128,(c,w,h)=>{
+ c.fillStyle='#ded9d1';c.fillRect(0,0,w,h);
+ let seed=8147;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
+ for(let i=0;i<110;i++){const x=rnd()*w,y=rnd()*h,r=2+rnd()*5;const g=c.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,i%2?'rgba(130,113,94,.07)':'rgba(255,255,255,.12)');g.addColorStop(1,'rgba(200,190,175,0)');c.fillStyle=g;c.fillRect(x-r,y-r,r*2,r*2)}
 });
-sidewalkTex.wrapS=sidewalkTex.wrapT=THREE.RepeatWrapping;sidewalkTex.repeat.set(1,36);sidewalkTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());sidewalkTex.minFilter=THREE.LinearMipmapLinearFilter;
-const sidewalkMat=new THREE.MeshStandardMaterial({map:sidewalkTex,color:0xe9e1d5,roughness:.88,metalness:0});
-const curbMat=mat(0xb4a69a,.74,.08),furnishingMat=mat(0x696b6b,.83,.08),edgeStone=mat(0xe4cfb3,.80,.02);
+stoneTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());stoneTex.minFilter=THREE.LinearMipmapLinearFilter;
+const groutM=mat(0x958779,.95,0),curbMat=mat(0xb4a69a,.74,.08),edgeStone=mat(0xd0bda6,.80,.02);
+const paverM=new THREE.MeshStandardMaterial({map:stoneTex,color:0xffffff,roughness:.90,metalness:0});
+const serviceM=mat(0x777d7d,.86,.04);
 const CURB=new THREE.MeshBasicMaterial({color:0x42ebdf,toneMapped:false});
-const walkLines=new THREE.MeshBasicMaterial({color:0xd9bd93,toneMapped:false});
+const sidewalkModules=[];
+const PAVER_LEN=16,PAVER_LOOP=176;
 for(const side of [-1,1]){
- // Distinct lateral bands; no duplicate surfaces at the same elevation.
  box(scene,side*4.85,-.02,-80,.55,.28,180,curbMat).castShadow=false;
  box(scene,side*4.55,.10,-80,.14,.08,180,CURB).castShadow=false;
  box(scene,side*5.20,.055,-80,.18,.27,180,edgeStone).castShadow=false;
- box(scene,side*6.13,.025,-80,1.68,.22,180,furnishingMat).castShadow=false;
- box(scene,side*8.46,.025,-80,2.98,.22,180,sidewalkMat).castShadow=false;
+ box(scene,side*6.13,.025,-80,1.68,.22,180,serviceM).castShadow=false;
+ box(scene,side*8.46,.025,-80,2.98,.22,180,groutM).castShadow=false;
  box(scene,side*7.01,.14,-80,.10,.045,180,edgeStone).castShadow=false;
- box(scene,side*7.22,.14,-80,.055,.018,180,walkLines).castShadow=false;
  box(scene,side*9.89,.025,-80,.14,.28,180,curbMat).castShadow=false;
+}
+// Individual beveled stones, shared GPU geometry. The top face has a visible bevel.
+function paverGeometry(w,d,h){
+ const bevel=.023,hw=w/2,hd=d/2,hh=h/2;
+ const v=[-hw,-hh,-hd,hw,-hh,-hd,hw,-hh,hd,-hw,-hh,hd,
+ -hw,hh-bevel,-hd,hw,hh-bevel,-hd,hw,hh-bevel,hd,-hw,hh-bevel,hd,
+ -hw+bevel,hh,-hd+bevel,hw-bevel,hh,-hd+bevel,hw-bevel,hh,hd-bevel,-hw+bevel,hh,hd-bevel];
+ const idx=[0,1,2,0,2,3, 0,4,5,0,5,1, 1,5,6,1,6,2, 2,6,7,2,7,3, 3,7,4,3,4,0,
+ 4,8,9,4,9,5, 5,9,10,5,10,6, 6,10,11,6,11,7, 7,11,8,7,8,4, 8,11,10,8,10,9];
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));geo.setIndex(idx);
+ const uv=[];for(let i=0;i<v.length;i+=3)uv.push(v[i]/w+.5,v[i+2]/d+.5);geo.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));
+ const flat=geo.toNonIndexed();flat.computeVertexNormals();geo.dispose();return flat;
+}
+const paverG=paverGeometry(.705,.955,.075),borderG=paverGeometry(.15,.955,.085);
+const stoneColors=[0xc9baa8,0xd4c6b5,0xd8cbbb,0xcfc1ae,0xe0d4c3].map(c=>new THREE.Color(c));
+const borderColors=[0xafa08b,0xb8a894,0xc5b69f].map(c=>new THREE.Color(c));
+const paverDummy=new THREE.Object3D();
+for(let j=0;j<11;j++){
+ const module=new THREE.Group();module.position.z=-160+j*PAVER_LEN;
+ const stones=new THREE.InstancedMesh(paverG,paverM,128),borders=new THREE.InstancedMesh(borderG,paverM,64);
+ let n=0,k=0;
+ for(const side of [-1,1])for(let row=0;row<16;row++){
+  const z=-7.5+row;
+  for(let col=0;col<4;col++){
+   paverDummy.position.set(side*(7.34+col*.745),.165,z);paverDummy.updateMatrix();
+   stones.setMatrixAt(n,paverDummy.matrix);stones.setColorAt(n++,stoneColors[(j*19+row*7+col*13+(side>0?2:0))%5]);
+  }
+  for(const x of [6.91,9.78]){
+   paverDummy.position.set(side*x,.166,z);paverDummy.updateMatrix();borders.setMatrixAt(k,paverDummy.matrix);borders.setColorAt(k++,borderColors[(row+j+(side>0?1:0))%3]);
+  }
+ }
+ for(const mesh of [stones,borders]){mesh.instanceMatrix.needsUpdate=true;mesh.instanceColor.needsUpdate=true;mesh.computeBoundingSphere();mesh.castShadow=false;mesh.receiveShadow=false;module.add(mesh)}
+ scene.add(module);sidewalkModules.push(module);
 }
 const DASH=new THREE.MeshStandardMaterial({color:0xcfd6dc,emissive:0x6d7a86,emissiveIntensity:.35,roughness:.5});const roadDashes=[];for(const x of [-1.5,1.5])for(let z=-164;z<12;z+=8)roadDashes.push(box(scene,x,.012,z,.16,.025,4.2,DASH));
 const roadEdges=[];for(let side of [-1,1])for(let z=-168;z<12;z+=12)roadEdges.push(box(scene,side*4.05,.025,z,.08,.04,2.4,orange));
@@ -256,7 +286,7 @@ const lamps=[];
 const planterStone=mat(0xb7a18a,.75,.08),planterRim=mat(0xe2c6a5,.61,.12),planterSoil=mat(0x605140,.96),benchWood=mat(0xa46e3e,.66,.05),streetMetal=mat(0x36434a,.48,.35);
 const streetShadowTex=canvasTex(128,128,(c,w,h)=>{const g=c.createRadialGradient(w/2,h/2,0,w/2,h/2,w/2);g.addColorStop(0,'rgba(0,0,0,.62)');g.addColorStop(.5,'rgba(0,0,0,.27)');g.addColorStop(1,'rgba(0,0,0,0)');c.fillStyle=g;c.fillRect(0,0,w,h)});
 const streetShadowM=new THREE.MeshBasicMaterial({map:streetShadowTex,transparent:true,opacity:.6,depthWrite:false,toneMapped:false});
-function furnitureShadow(g,x,z,w,d){const m=new THREE.Mesh(STREAK_G,streetShadowM);m.rotation.x=-Math.PI/2;m.position.set(x,.148,z);m.scale.set(w,d,1);g.add(m);}
+function furnitureShadow(g,x,z,w,d){const m=new THREE.Mesh(STREAK_G,streetShadowM);m.rotation.x=-Math.PI/2;m.position.set(x,.153,z);m.scale.set(w,d,1);g.add(m);}
 const potG=new THREE.CylinderGeometry(.63,.54,.52,24),soilG=new THREE.CircleGeometry(.53,24),potRimG=new THREE.TorusGeometry(.61,.055,8,24);
 const shrubG=new THREE.IcosahedronGeometry(1,1),shrubM=[mat(0x52713a,.85),mat(0x769749,.85)];
 function streetBench(g,x,z,side){
@@ -860,7 +890,7 @@ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.positio
  for(let b of buildings){b.position.z+=speed*dt;if(b.position.z>22)b.position.z-=176}
  for(let b of bridges){b.position.z+=speed*dt;if(b.position.z>30)b.position.z-=220}
  asphaltTex.offset.y=(asphaltTex.offset.y-speed*dt*15/180)%1;
- sidewalkTex.offset.y=(sidewalkTex.offset.y-speed*dt*36/180)%1;
+ for(const module of sidewalkModules){module.position.z+=speed*dt;if(module.position.z>18)module.position.z-=PAVER_LOOP;}
  for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=176}
  for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z-=180}
 }
