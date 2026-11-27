@@ -611,7 +611,19 @@ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.positio
 if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}renderer.render(scene,camera)}
 animate();
 // Камера подстраивается под ширину экрана: на узких телефонах (в т.ч. в Telegram) все три полосы и ARNI остаются в кадре
-function fitCamera(){const a=camera.aspect;camera.fov=a<.75?66:62;const half=Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov/2))*a),D=Math.max(10,4.7/Math.tan(half));camBaseY=1.2+D*.5;camera.position.set(0,camBaseY,2+D);camera.lookAt(0,1,-8);camera.updateProjectionMatrix()}
+function fitCamera(){
+ const distance=9.15,playerZ=2,rotorZ=7.17,rotorY=2.15;
+ // Расширяем поле зрения на узком экране, чтобы ARNI помещался на крайних полосах.
+ const halfFovTan=Math.max(.73,3.79/(distance*camera.aspect));
+ const pitch=Math.atan(.135*halfFovTan);
+ camera.fov=THREE.MathUtils.radToDeg(2*Math.atan(halfFovTan));
+ const cameraZ=playerZ+distance;
+ // Передние винты дрона при полном отрыве находятся у нижней кромки кадра.
+ camBaseY=rotorY+(cameraZ-rotorZ)*Math.tan(pitch+Math.atan(.9*halfFovTan));
+ camera.position.set(0,camBaseY,cameraZ);
+ camera.lookAt(0,camBaseY-distance*Math.tan(pitch),playerZ);
+ camera.updateProjectionMatrix();
+}
 function resize(){const w=root.clientWidth,h=root.clientHeight;camera.aspect=w/h;fitCamera();renderer.setSize(w,h)}resize();addEventListener('resize',resize);
 $('start').disabled=false;$('start').textContent='НАЧАТЬ ПОБЕГ';
 </script></body></html>
