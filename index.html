@@ -423,9 +423,19 @@ const exhaustTexture=canvasTex(64,256,(ctx,w,h)=>{
  ctx.fillStyle=edge;ctx.fillRect(0,0,w,h);
 });
 const exhaustLayers=[];
+let hoverBank=0,hoverBend=0,hoverPrevX=null;
+const TRAIL_SEGMENTS=12;
+function bendExhaust(layer,bend,width){
+ const attr=layer.o.geometry.attributes.position,uv=layer.o.geometry.attributes.uv;
+ for(let i=0;i<attr.count;i++){
+  const u=uv.getX(i),v=uv.getY(i),tail=1-v;
+  attr.setXYZ(i,u-.5+bend*tail*tail/width,v-.5,0);
+ }
+ attr.needsUpdate=true;
+}
 function exhaustLayer(x,width,length,color,opacity,phase){
  const m=new THREE.MeshBasicMaterial({map:exhaustTexture,color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
- const o=new THREE.Mesh(STREAK_G,m);o.rotation.x=-Math.PI/2;o.rotation.z=Math.PI;o.renderOrder=2;
+ const o=new THREE.Mesh(new THREE.PlaneGeometry(1,1,1,TRAIL_SEGMENTS),m);o.rotation.x=-Math.PI/2;o.rotation.z=Math.PI;o.renderOrder=2;o.frustumCulled=false;
  o.position.set(x,.012,length*.5-.12);o.scale.set(width,length,1);hoverTrail.add(o);
  exhaustLayers.push({o,x,width,length,opacity,phase});
 }
@@ -460,15 +470,23 @@ function loadRider(src,remember=false){
  },undefined,()=>{spriteStatus.textContent='Не удалось загрузить спрайт. Выбери файл ещё раз.';spriteButton.style.display='';});
 }
 spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader=new FileReader();reader.onload=()=>loadRider(reader.result,true);reader.readAsDataURL(f);};
-function updateRunnerImage(time){
+function updateRunnerImage(time,dt){
  const riding=['run','paused','countdown','finishing'].includes(gameState)&&!!runMaterial.map;
  player.visible=!riding;illustratedRunner.visible=hoverTrail.visible=riding;
  riderShadow.visible=riding;
- if(!riding)return;
+ if(!riding){hoverBank=0;hoverBend=0;hoverPrevX=null;return;}
+ const moving=gameState==='run'||gameState==='finishing';
+ const motionDt=moving?Math.max(.001,dt):0;
+ const vx=hoverPrevX===null||!moving?0:(player.position.x-hoverPrevX)/motionDt;
+ hoverPrevX=player.position.x;
+ const targetBank=THREE.MathUtils.clamp(-vx*.021,-.245,.245);
+ const targetBend=THREE.MathUtils.clamp(vx*.075,-.95,.95);
+ hoverBank=THREE.MathUtils.damp(hoverBank,targetBank,13,motionDt);
+ hoverBend=THREE.MathUtils.damp(hoverBend,targetBend,8,motionDt);
  const low=slide>0,air=jump>0;
  const lift=low?.015:.045+Math.sin(time*4)*.045;
  const jumpLift=air?Math.sin((.88-jump)/.88*Math.PI)*1.85:0;
- const lean=THREE.MathUtils.clamp((LX[lane]-player.position.x)*-.11,-.22,.22)+Math.sin(time*3)*.016;
+ const lean=hoverBank+Math.sin(time*3)*.016;
  illustratedRunner.position.set(player.position.x,lift+jumpLift,player.position.z);
  illustratedRunner.scale.set(2.1114,3.184695*(low?.52:1),1);
  runMaterial.rotation=lean;
@@ -482,6 +500,7 @@ function updateRunnerImage(time){
   l.o.scale.set(l.width*(1+exhaustHeight*.13),length,1);
   l.o.position.x=l.x;
   l.o.position.z=length*.5-.12;
+  bendExhaust(l,hoverBend,l.o.scale.x);
   l.o.material.opacity=l.opacity*pulse*exhaustFade;
  }
  for(const p of exhaustPools){
@@ -730,7 +749,7 @@ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.positio
  for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=112}
  for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z=-100}
 }
-if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}updateRunnerImage(t);robot.userData.body.position.z=['run','paused','countdown','finishing'].includes(gameState)?.82:0;renderer.render(scene,camera)}
+if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}updateRunnerImage(t,dt);robot.userData.body.position.z=['run','paused','countdown','finishing'].includes(gameState)?.82:0;renderer.render(scene,camera)}
 animate();
 // Камера подстраивается под ширину экрана: на узких телефонах (в т.ч. в Telegram) все три полосы и ARNI остаются в кадре
 function fitCamera(){
