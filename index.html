@@ -29,10 +29,10 @@
 @keyframes popUp{0%{opacity:0;transform:translateY(5px) scale(.98)}12%,76%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-3px)}}
 .bar{height:9px;margin-top:9px;border-radius:9px;overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.22),rgba(255,255,255,.06));border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.35)}.bar i{display:block;height:100%;width:0;border-radius:9px;background:linear-gradient(90deg,#ffb347,#ff7a00);box-shadow:0 0 10px #ff8a00}
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:22px;background:#080b10d9;text-align:center}.panel{width:100%;max-width:390px;padding:25px 22px;background:linear-gradient(145deg,#222c37f5,#11161df5);border:1px solid #ff741766;border-radius:24px;box-shadow:0 18px 65px #000b}.logo{font-size:28px;font-weight:1000;letter-spacing:3px}.logo span{color:#ff7417}.kicker{color:#ff9a54;font-size:11px;letter-spacing:3px;font-weight:800;margin:8px 0 18px}h1{font-size:25px;line-height:1.12;margin:8px 0 12px}p{color:#c4ccd5;font-size:14px;line-height:1.5}button{width:100%;border:0;border-radius:14px;padding:15px 18px;margin-top:13px;background:linear-gradient(135deg,#ff9238,#ed590b);color:#fff;font-weight:900;font-size:15px}.small{font-size:11px;color:#8793a0;margin-top:14px}
-.hud-bottom{display:grid;justify-items:end;align-items:start;gap:6px;margin-top:5px}
+.hud-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:8px;margin-top:5px}
 .hud-bottom:not(:has(.show,.go)) .hud-status{display:none}
-.hud-actions{grid-row:1;display:flex;gap:6px}
-.hud-status{grid-row:2;display:grid;justify-items:end;gap:5px;min-width:0;width:100%}
+.hud-actions{grid-area:1 / 2;display:flex;gap:6px}
+.hud-status{grid-area:1 / 1;display:grid;justify-items:start;gap:5px;min-width:0}
 .hud-card{display:none;max-width:min(100%,250px);min-width:min(100%,152px);padding:7px 12px;overflow-wrap:anywhere;pointer-events:none;text-align:center;border:1px solid transparent;border-radius:12px;background:linear-gradient(180deg,#263d55 0%,#142236 35%,#090f1c 100%) padding-box,linear-gradient(175deg,#93eaff 0%,#3982a8 32%,#22293a 65%,#ff942f 100%) border-box;box-shadow:inset 0 1px 1px #e6f7ff55,inset 0 -2px 2px #e87c2a30,0 3px 0 #060a12,0 8px 14px #0009,0 0 10px #299bd540}
 @media (prefers-reduced-motion:reduce){#pop.go{animation-name:popStill}@keyframes popStill{0%,90%{opacity:1}100%{opacity:0}}}
 #zoneToast.show{display:block}#zoneToast span{display:block;color:#ffb377;font-size:10px;font-weight:900;margin-bottom:2px}#zoneToast b{font-size:12px}
