@@ -431,7 +431,7 @@ function updateRunnerImage(time){
  const jumpLift=air?Math.sin((.88-jump)/.88*Math.PI)*1.85:0;
  const lean=THREE.MathUtils.clamp((LX[lane]-player.position.x)*-.11,-.22,.22)+Math.sin(time*3)*.016;
  illustratedRunner.position.set(player.position.x,lift+jumpLift,player.position.z);
- illustratedRunner.scale.set(2.4,3.62*(low?.52:1),1);
+ illustratedRunner.scale.set(2.76,4.163*(low?.52:1),1);
  runMaterial.rotation=lean;
  hoverTrail.position.set(player.position.x,.02,player.position.z);
 }
