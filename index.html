@@ -114,7 +114,7 @@ const gameStorage={
   catch { sessionStorageFallback.set(key,String(value)); }
  }
 };
-const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xbde7f5,58,170);
+const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xbde7f5,52,128);
 // ===== Неоновый вечерний город =====
 function canvasTex(w,h,draw){const c=document.createElement('canvas');c.width=w;c.height=h;draw(c.getContext('2d'),w,h);const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t}
 // небо по районам: верх, середина, закатное свечение у горизонта, цвет тумана
@@ -134,7 +134,7 @@ function streak(parent,x,z,len,wid,color,op=.5){const m=streakM[color+'_'+op]||(
 const HAZARD=canvasTex(256,128,(x,w,h)=>{x.fillStyle='#101114';x.fillRect(0,0,w,h);x.fillStyle='#ffae1a';for(let i=-h;i<w+h;i+=56){x.beginPath();x.moveTo(i,h);x.lineTo(i+28,h);x.lineTo(i+28+h,0);x.lineTo(i+h,0);x.closePath();x.fill()}});
 const SHOP=canvasTex(512,128,(x,w,h)=>{const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#ffcf8a');g.addColorStop(1,'#c9662a');x.fillStyle=g;x.fillRect(0,0,w,h);x.fillStyle='#2a1c14';for(let i=0;i<w;i+=64)x.fillRect(i,0,5,h);x.fillRect(0,0,w,6);x.fillStyle='rgba(60,30,20,.55)';for(let i=18;i<w;i+=64){x.beginPath();x.ellipse(i+14,h*.45,7,9,0,0,7);x.fill();x.fillRect(i+6,h*.55,16,h*.45)}});
 function glow(parent,x,y,z,size,color,op=.8){const m=new THREE.SpriteMaterial({map:GLOW,color,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false});const sp=new THREE.Sprite(m);sp.position.set(x,y,z);sp.scale.set(size,size,1);parent.add(sp);return sp}
-const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,260);camera.position.set(0,6.2,12);camera.lookAt(0,1,-8);let camBaseY=6.2;
+const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.6,260);camera.position.set(0,6.2,12);camera.lookAt(0,1,-8);let camBaseY=6.2;
 let renderer;
 try {
  renderer=new THREE.WebGLRenderer({antialias:true});
@@ -142,18 +142,28 @@ try {
  window.__arniLoadError('Не удалось запустить 3D-графику. Если повтор не помог, обнови Telegram или попробуй открыть игру в другом браузере с поддержкой WebGL.');
  throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(root.clientWidth,root.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;root.prepend(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xe4f6ff,0xa9b8a0,1.9));{const rim=new THREE.DirectionalLight(0x8a96c8,.22);rim.position.set(0,14,-30);scene.add(rim);const fill=new THREE.DirectionalLight(0xa8c8ff,.8);fill.position.set(4,8,22);scene.add(fill)}const sun=new THREE.DirectionalLight(0xfff0d7,2.1);sun.position.set(-8,16,8);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);scene.add(sun);
+const maxPixelRatio=Math.min(devicePixelRatio,2);let renderRatio=maxPixelRatio;renderer.setPixelRatio(renderRatio);renderer.setSize(root.clientWidth,root.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;root.prepend(renderer.domElement);
+scene.add(new THREE.HemisphereLight(0xe4f6ff,0xa9b8a0,1.55));{const rim=new THREE.DirectionalLight(0x8a96c8,.22);rim.position.set(0,14,-30);scene.add(rim);const fill=new THREE.DirectionalLight(0xa8c8ff,.8);fill.position.set(4,8,22);scene.add(fill)}const sun=new THREE.DirectionalLight(0xfff0d7,2.1);sun.position.set(-8,16,8);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-10,right:10,top:15,bottom:-15,near:.5,far:65});sun.shadow.camera.updateProjectionMatrix();sun.shadow.bias=-.00015;sun.shadow.normalBias=.035;sun.shadow.radius=2;sun.target.position.set(0,0,-8);scene.add(sun.target);scene.add(sun);
 const mat=(color,roughness=.8,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
 const roadMat=mat(0x718397,.48,.12),lineMat=mat(0xe3e6e8),orange=mat(0xff7417,.55),dark=mat(0x171d25),skin=mat(0xc9855b),glass=mat(0x66899a,.35,.2);
 function box(parent,x,y,z,w,h,d,m){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
-const asphaltTex=canvasTex(512,512,(x,w,h)=>{x.fillStyle='#a1a5ad';x.fillRect(0,0,w,h);for(let i=0;i<18000;i++){const v=18+Math.random()*24;x.fillStyle='rgba('+v+','+v+','+(v+4)+','+(.025+Math.random()*.06)+')';const px=Math.random()*w,py=Math.random()*h;x.fillRect(px,py,1+Math.random()*2,1+Math.random()*2)}for(let i=0;i<90;i++){x.strokeStyle='rgba(255,255,255,.025)';x.lineWidth=1;x.beginPath();const px=Math.random()*w,py=Math.random()*h;x.moveTo(px,py);x.lineTo(px+Math.random()*18,py+Math.random()*8);x.stroke()}});asphaltTex.wrapS=asphaltTex.wrapT=THREE.RepeatWrapping;asphaltTex.repeat.set(2,24);roadMat.map=asphaltTex;roadMat.bumpMap=asphaltTex;roadMat.bumpScale=.035;roadMat.needsUpdate=true;
-const road=box(scene,0,-.18,-45,9,.35,110,roadMat);
+// Smooth, low-contrast, seamless asphalt; anisotropic mip filtering suppresses crawl.
+const asphaltTex=canvasTex(512,512,(c,w,h)=>{
+ c.fillStyle='#9da4ad';c.fillRect(0,0,w,h);
+ let seed=381729;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296};
+ for(let i=0;i<1300;i++){const x=rnd()*w,y=rnd()*h,r=2+rnd()*7;const v=rnd()>.5?255:50;
+  c.fillStyle='rgba('+v+','+v+','+v+','+(.012+rnd()*.023)+')';
+  for(const dx of [-w,0,w])for(const dy of [-h,0,h])if(x+dx+r>=0&&x+dx-r<=w&&y+dy+r>=0&&y+dy-r<=h){c.beginPath();c.arc(x+dx,y+dy,r,0,Math.PI*2);c.fill()}
+ }
+});
+asphaltTex.wrapS=asphaltTex.wrapT=THREE.RepeatWrapping;asphaltTex.repeat.set(2,12);asphaltTex.minFilter=THREE.LinearMipmapLinearFilter;asphaltTex.magFilter=THREE.LinearFilter;asphaltTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+roadMat.map=asphaltTex;roadMat.bumpMap=null;roadMat.needsUpdate=true;
+const road=box(scene,0,-.18,-60,9,.35,140,roadMat);road.castShadow=false;
 const sidewalkMat=mat(0xe2e4df,.92,.02),curbMat=mat(0xc9d3d6,.82,.08),drainMat=mat(0x10151b,.7,.25);
-for(const side of [-1,1]){box(scene,side*5.55,-.12,-45,1.05,.22,110,sidewalkMat);box(scene,side*5.02,-.025,-45,.16,.22,110,curbMat);for(let z=-100;z<8;z+=8){box(scene,side*5.53,.005,z,.92,.035,3.6,mat(0x414650,.9,.02));box(scene,side*4.78,.015,z,.12,.045,.28,drainMat);for(let k=0;k<3;k++)box(scene,side*4.78,.042,z-.08+k*.08,.13,.012,.018,curbMat)}}
-const CURB=new THREE.MeshBasicMaterial({color:0xff8a1a});for(const side of [-1,1]){box(scene,side*4.85,-.02,-45,.55,.28,110,mat(0xdce9e9,.8,.08));box(scene,side*4.55,.1,-45,.14,.08,110,CURB);const sw=box(scene,side*7.2,-.05,-45,4.6,.22,110,mat(0xd2d8d5,.7,.08));sw.castShadow=false}
-const DASH=new THREE.MeshStandardMaterial({color:0xcfd6dc,emissive:0x6d7a86,emissiveIntensity:.35,roughness:.5});const roadDashes=[];for(const x of [-1.5,1.5])for(let z=-100;z<12;z+=8)roadDashes.push(box(scene,x,.012,z,.16,.025,4.2,DASH));
-const roadEdges=[];for(let side of [-1,1])for(let z=-100;z<10;z+=12)roadEdges.push(box(scene,side*4.05,.025,z,.08,.04,2.4,orange));
+for(const side of [-1,1]){box(scene,side*5.55,-.12,-60,1.05,.22,140,sidewalkMat);box(scene,side*5.02,-.025,-60,.16,.22,140,curbMat);for(let z=-100;z<8;z+=8){box(scene,side*5.53,.026,z,.92,.035,3.6,mat(0x414650,.9,.02));box(scene,side*4.78,.132,z,.12,.045,.28,drainMat);for(let k=0;k<3;k++)box(scene,side*4.78,.162,z-.08+k*.08,.13,.012,.018,curbMat)}}
+const CURB=new THREE.MeshBasicMaterial({color:0xff8a1a});for(const side of [-1,1]){box(scene,side*4.85,-.02,-60,.55,.28,140,mat(0xdce9e9,.8,.08));box(scene,side*4.55,.1,-60,.14,.08,140,CURB);const sw=box(scene,side*7.2,-.05,-60,4.6,.22,140,mat(0xd2d8d5,.7,.08));sw.castShadow=false}
+const DASH=new THREE.MeshStandardMaterial({color:0xcfd6dc,emissive:0x6d7a86,emissiveIntensity:.35,roughness:.5});const roadDashes=[];for(const x of [-1.5,1.5])for(let z=-124;z<12;z+=8)roadDashes.push(box(scene,x,.012,z,.16,.025,4.2,DASH));
+const roadEdges=[];for(let side of [-1,1])for(let z=-120;z<12;z+=12)roadEdges.push(box(scene,side*4.05,.025,z,.08,.04,2.4,orange));
 const buildings=[];
 const em=(c,e,i)=>new THREE.MeshStandardMaterial({color:c,emissive:e,emissiveIntensity:i,roughness:.35});const windowMats=[mat(0x1a2433,.3,.3),em(0xffb066,0xff7a1e,1.0),em(0x2a6a80,0x3fc8ff,.8),em(0xfff0d8,0xffd9a8,.75),mat(0x121a26,.3,.3)];
 const NEON=[0xff7417,0x37d6ff,0xff3fa4];const SIGNS=['ARNI RUSH','24/7','КАФЕ','GAME','ТАКСИ','NEON','БАР','SHOP'];
@@ -161,12 +171,14 @@ function signTex(t,col){const hex='#'+col.toString(16).padStart(6,'0');return ca
 // V17 Eco City: white terraces, blue glazing and living architecture.
 const ecoWhite=mat(0xf2f5ee,.67,.06),ecoTrim=mat(0xc8d7dc,.48,.16),ecoBlue=mat(0x429ab9,.22,.35),ecoDark=mat(0x16465b,.35,.2);
 const ecoGreen=[mat(0x437e20,.85),mat(0x79ac2d,.85),mat(0x255e2a,.85),mat(0xe95c9b,.8)];
-const ecoLeafG=new THREE.IcosahedronGeometry(1,1),ecoCyan=new THREE.MeshBasicMaterial({color:0x55dded});
+const ecoLeafG=new THREE.IcosahedronGeometry(1,2),ecoCyan=new THREE.MeshBasicMaterial({color:0x55dded});
 const ecoSolar=canvasTex(128,128,(c,w,h)=>{c.fillStyle='#214d83';c.fillRect(0,0,w,h);c.strokeStyle='#89b5d8';c.lineWidth=2;for(let i=0;i<=w;i+=16){c.beginPath();c.moveTo(i,0);c.lineTo(i,h);c.stroke();c.beginPath();c.moveTo(0,i);c.lineTo(w,i);c.stroke()}});
 const ecoSolarM=new THREE.MeshStandardMaterial({map:ecoSolar,roughness:.36,metalness:.3});
 const ecoWindow=canvasTex(256,512,(c,w,h)=>{const g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,'#1c718e');g.addColorStop(.4,'#a2e5f4');g.addColorStop(.6,'#438eaf');g.addColorStop(1,'#194d69');c.fillStyle=g;c.fillRect(0,0,w,h);c.fillStyle='#d3edf0';for(let i=0;i<w;i+=64)c.fillRect(i,0,5,h);for(let i=0;i<h;i+=64)c.fillRect(0,i,w,5);});
+ecoWindow.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());ecoWindow.minFilter=THREE.LinearMipmapLinearFilter;
 const ecoWindowM=new THREE.MeshStandardMaterial({map:ecoWindow,roughness:.28,metalness:.15,emissive:0x28738b,emissiveIntensity:.13});
-function ecoLeaf(g,x,y,z,r,k){const m=new THREE.Mesh(ecoLeafG,ecoGreen[k%4]);m.position.set(x,y,z);m.scale.set(r,r*.72,r);g.add(m);}
+function ecoLeaf(g,x,y,z,r,k){(g.userData.plants||(g.userData.plants=[])).push({x,y,z,r,k:k%4});}
+function batchEcoPlants(g){const plants=g.userData.plants||[];const helper=new THREE.Object3D();for(let k=0;k<4;k++){const group=plants.filter(p=>p.k===k);if(!group.length)continue;const batch=new THREE.InstancedMesh(ecoLeafG,ecoGreen[k],group.length);group.forEach((p,i)=>{helper.position.set(p.x,p.y,p.z);helper.scale.set(p.r,p.r*.72,p.r);helper.rotation.set(.15*(i%3),i*1.73,0);helper.updateMatrix();batch.setMatrixAt(i,helper.matrix)});batch.instanceMatrix.needsUpdate=true;batch.computeBoundingSphere();batch.castShadow=false;batch.receiveShadow=true;g.add(batch)}delete g.userData.plants;}
 for(let side of [-1,1])for(let i=0;i<12;i++){
  const h=7+(i*7%13)*.95,w=3.6+i%3*.55,z=-i*9-10;
  const tower=new THREE.Group();tower.position.set(side*(9.6+i%2*.55),0,z);
@@ -174,36 +186,36 @@ for(let side of [-1,1])for(let i=0;i<12;i++){
  const face=new THREE.Mesh(new THREE.PlaneGeometry(w-.5,h-.9),ecoWindowM);face.position.set(0,h/2,3.025);tower.add(face);
  const street=new THREE.Mesh(new THREE.PlaneGeometry(5.65,h-.9),ecoWindowM);street.position.set(-side*(w/2+.028),h/2,0);street.rotation.y=-side*Math.PI/2;tower.add(street);
  for(let y=2.7;y<h-.5;y+=3.0){
-  const slab=new THREE.Mesh(rbox(w+.65,.28,6.45,.12),ecoWhite);slab.position.y=y;tower.add(slab);
+  const slab=new THREE.Mesh(rbox(w+.65,.28,6.45,.12,3),ecoWhite);slab.position.y=y;tower.add(slab);
   box(tower,-side*(w/2+.30),y+.24,0,.35,.22,5.95,ecoTrim);
   for(let j=0;j<5;j++)ecoLeaf(tower,-side*(w/2+.32),y+.48,-2.5+j*1.22,.39,(i+j)%3);
   if(i%3===0)ecoLeaf(tower,-side*(w/2+.38),y+.30,2.6,.33,3);
   box(tower,0,y+.15,3.25,w+.3,.09,.07,ecoCyan).castShadow=false;
  }
- const roof=new THREE.Mesh(rbox(w+.45,.30,6.3,.14),ecoWhite);roof.position.y=h;tower.add(roof);
+ const roof=new THREE.Mesh(rbox(w+.45,.30,6.3,.14,3),ecoWhite);roof.position.y=h;tower.add(roof);
  for(let j=0;j<4;j++)ecoLeaf(tower,-side*(w*.36),h+.46,-2+j*1.25,.48,(i+j)%3);
  const panel=new THREE.Mesh(new THREE.BoxGeometry(w*.55,.08,2),ecoSolarM);panel.position.set(side*.55,h+.42,-.5);panel.rotation.x=-.30;tower.add(panel);
  if(i%4===0){const ring=new THREE.Mesh(new THREE.TorusGeometry(w*.65,.095,8,32),ecoCyan);ring.rotation.x=Math.PI/2;ring.position.y=h+1.3;tower.add(ring);box(tower,0,h+.65,0,.12,1.3,.12,ecoTrim);}
  if(i%3===1){const sg=new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.05),new THREE.MeshBasicMaterial({map:signTex('ARNI',0x37c9df)}));sg.position.set(-side*(w/2+.42),4.3,1.2);sg.rotation.y=-side*Math.PI/2;tower.add(sg);}
- tower.scale.set(1.12,1.12,1);scene.add(tower);buildings.push(tower);
+ batchEcoPlants(tower);tower.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=true}});body.castShadow=true;tower.scale.set(1.12,1.12,1);scene.add(tower);buildings.push(tower);
 }
 // Glass roadside railings outside the playable lanes.
-const railGlass=new THREE.MeshStandardMaterial({color:0x55c5db,transparent:true,opacity:.44,roughness:.22,metalness:.15,depthWrite:false});
-for(const side of [-1,1]){box(scene,side*4.92,.74,-45,.08,.92,110,railGlass).castShadow=false;box(scene,side*4.92,1.22,-45,.13,.09,110,ecoTrim).castShadow=false;for(let z=-100;z<12;z+=5)box(scene,side*4.92,.64,z,.14,1.23,.14,ecoTrim);}
+const railGlass=new THREE.MeshStandardMaterial({color:0x5bbdd2,transparent:true,opacity:.50,roughness:.34,metalness:.08,depthWrite:false,side:THREE.FrontSide});
+for(const side of [-1,1]){box(scene,side*4.92,.74,-60,.08,.92,140,railGlass).castShadow=false;box(scene,side*4.92,1.22,-60,.13,.09,140,ecoTrim).castShadow=false;for(let z=-125;z<12;z+=5)box(scene,side*4.92,.64,z,.14,1.23,.14,ecoTrim).castShadow=false;}
 const POOL_G=new THREE.CircleGeometry(1.5,28),POOL_M=new THREE.MeshBasicMaterial({map:GLOW,color:0xff8a3c,transparent:true,opacity:.3,blending:THREE.AdditiveBlending,depthWrite:false});const lamps=[];const POLE=mat(0xc3d3d8,.45,.3);
 const FOL=[mat(0x4f7d2a,.8),mat(0x6d9a34,.8),mat(0x3d6624,.85)],PLANT=mat(0xb68b60,.8,.05),RIM=new THREE.MeshBasicMaterial({color:0xff8a1a}),BOL=mat(0x16181d,.5,.4);
 for(let z=-96;z<16;z+=16)for(let s of [-1,1]){let g=new THREE.Group();g.position.set(s*5.35,0,z);
  // фонарь с изогнутой опорой
  const pole=box(g,0,2.3,0,.14,4.6,.14,POLE);pole.castShadow=false;const arc=new THREE.Mesh(new THREE.TorusGeometry(.55,.06,8,16,Math.PI/2),POLE);arc.position.set(-s*.55,4.6,0);arc.rotation.z=s>0?0:Math.PI/2;if(s>0)arc.rotation.y=Math.PI;g.add(arc);
  const head=box(g,-s*1.12,4.98,0,.5,.12,.3,POLE);head.castShadow=false;let bulb=new THREE.Mesh(new THREE.BoxGeometry(.42,.05,.22),new THREE.MeshBasicMaterial({color:0xffd9a0}));bulb.position.set(-s*1.12,4.9,0);g.add(bulb);
- glow(g,-s*1.12,4.85,0,2.6,0xff9a3c,.9);const pool=new THREE.Mesh(POOL_G,POOL_M);pool.rotation.x=-Math.PI/2;pool.position.set(-s*1.0,.035,0);g.add(pool);streak(g,-s*1.1,0,6,.7,0xff9a3c,.28);
+ glow(g,-s*1.12,4.85,0,1.5,0xffb35b,.16);const pool=new THREE.Mesh(POOL_G,POOL_M);pool.rotation.x=-Math.PI/2;pool.position.set(-s*1.0,.035,0);g.add(pool);streak(g,-s*1.1,0,6,.7,0xff9a3c,.28);
  // дерево в кадке с подсветкой
  const tz=8;const pl=new THREE.Mesh(rbox(1.15,.75,1.15,.08),PLANT);pl.position.set(s*.75,.38,tz);g.add(pl);const rim=box(g,s*.75,.77,tz,1.17,.05,1.17,RIM);rim.castShadow=false;glow(g,s*.75,.8,tz,1.8,0xff8a1a,.35);
  const tr=new THREE.Mesh(new THREE.CylinderGeometry(.06,.08,1.3,6),mat(0x4a3424));tr.position.set(s*.75,1.4,tz);g.add(tr);
  for(const [dx,dy,dz,r] of [[0,2.25,0,.62],[.32,1.95,.18,.42],[-.3,2.0,-.15,.45],[.05,2.7,.1,.4],[-.15,1.75,.3,.36]]){const f=new THREE.Mesh(new THREE.IcosahedronGeometry(r,1),FOL[(dx*10|0)&1?1:(dz>0?2:0)]);f.position.set(s*.75+dx,dy,tz+dz);f.castShadow=true;g.add(f)}
  // столбики с оранжевым пояском у бордюра
  for(const bz of [3,-3]){const b=new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,.7,10),BOL);b.position.set(-s*.15,.35,bz);g.add(b);const band=new THREE.Mesh(new THREE.CylinderGeometry(.115,.115,.08,10),RIM);band.position.set(-s*.15,.55,bz);g.add(band)}
- g.scale.set(1.08,1.28,1);scene.add(g);lamps.push(g)}
+ g.traverse(o=>{if(o.isMesh)o.castShadow=false});g.scale.set(1.08,1.28,1);scene.add(g);lamps.push(g)}
 {const sky=new THREE.Mesh(new THREE.PlaneGeometry(420,60),new THREE.MeshBasicMaterial({transparent:true,fog:false,depthWrite:false,map:canvasTex(2048,256,(x,w,h)=>{let X=0;while(X<w){const bw=30+Math.random()*70,bh=50+Math.random()*170;x.fillStyle='#8cbdcf';x.fillRect(X,h-bh,bw,bh);for(let yy=h-bh+8;yy<h-6;yy+=11)for(let xx=X+5;xx<X+bw-5;xx+=9)if(Math.random()<.22){x.fillStyle=['#ff9a4a','#ffd9a8','#4fd2ff','#ff4fa8'][Math.random()*4|0];x.globalAlpha=.55+Math.random()*.45;x.fillRect(xx,yy,3,4);x.globalAlpha=1}if(Math.random()<.18){x.fillStyle='#ff3b20';x.fillRect(X+bw/2-2,h-bh-6,4,4)}X+=bw+Math.random()*6}})}));sky.position.set(0,24,-200);sky.renderOrder=-1;scene.add(sky)}
 const bridges=[];{const deckM=mat(0xe4eeed,.55,.08),neon=new THREE.MeshBasicMaterial({color:0xff8a1a});
  const chev=canvasTex(256,64,(x,w,h)=>{x.fillStyle='#000';x.fillRect(0,0,w,h);x.strokeStyle='#ff9a1a';x.lineWidth=12;x.lineCap='round';x.lineJoin='round';x.shadowColor='#ff8a00';x.shadowBlur=12;for(let i=0;i<3;i++){const c=80+i*48;x.beginPath();x.moveTo(c-14,12);x.lineTo(c+10,32);x.lineTo(c-14,52);x.stroke()}});
@@ -437,7 +449,7 @@ function bendExhaust(layer,bend,width){
 function exhaustLayer(x,width,length,color,opacity,phase){
  const m=new THREE.MeshBasicMaterial({map:exhaustTexture,color,transparent:true,opacity,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
  const o=new THREE.Mesh(new THREE.PlaneGeometry(1,1,1,TRAIL_SEGMENTS),m);o.rotation.x=-Math.PI/2;o.rotation.z=Math.PI;o.renderOrder=2;o.frustumCulled=false;
- o.position.set(x,.012,length*.5-.12);o.scale.set(width,length,1);hoverTrail.add(o);
+ o.position.set(x,.018+exhaustLayers.length*.0015,length*.5-.12);o.scale.set(width,length,1);hoverTrail.add(o);
  exhaustLayers.push({o,x,width,length,opacity,phase});
 }
 for(const x of [-.47,.47]){
@@ -449,10 +461,10 @@ for(const x of [-.47,.47]){
 const exhaustPools=[];
 for(const x of [-.47,.47]){
  const m=new THREE.MeshBasicMaterial({map:GLOW,color:0xff7818,transparent:true,opacity:.66,blending:THREE.AdditiveBlending,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
- const o=new THREE.Mesh(STREAK_G,m);o.rotation.x=-Math.PI/2;o.renderOrder=2;o.position.set(x,.009,.35);o.scale.set(1.05,1.9,1);hoverTrail.add(o);exhaustPools.push(o);
+ const o=new THREE.Mesh(STREAK_G,m);o.rotation.x=-Math.PI/2;o.renderOrder=2;o.position.set(x,.010+(x>0?.002:0),.35);o.scale.set(1.05,1.9,1);hoverTrail.add(o);exhaustPools.push(o);
 }
 hoverTrail.visible=false;
-const runMaterial=new THREE.SpriteMaterial({transparent:true,alphaTest:.03,depthWrite:false});
+const runMaterial=new THREE.SpriteMaterial({transparent:true,alphaTest:.025,depthWrite:false,toneMapped:false});
 const illustratedRunner=new THREE.Sprite(runMaterial);
 illustratedRunner.center.set(.5,.035);
 illustratedRunner.visible=false;scene.add(illustratedRunner);
@@ -462,7 +474,7 @@ const spriteStatus=document.createElement('p');spriteStatus.style.cssText='font-
 spriteButton.onclick=()=>spriteInput.click();
 function loadRider(src,remember=false){
  new THREE.TextureLoader().load(src,texture=>{
-  texture.colorSpace=THREE.SRGBColorSpace;
+  texture.colorSpace=THREE.SRGBColorSpace;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.magFilter=THREE.LinearFilter;texture.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());
   if(runMaterial.map)runMaterial.map.dispose();
   runMaterial.map=texture;runMaterial.needsUpdate=true;
   $('start').disabled=false;$('start').textContent='НАЧАТЬ ПОБЕГ';
@@ -509,7 +521,7 @@ function updateRunnerImage(time,dt){
   p.material.opacity=.66*exhaustFade*(.95+.05*Math.sin(time*12));
  }
  const shadowHeight=Math.max(0,lift+jumpLift);
- riderShadow.position.set(player.position.x,.008,player.position.z);
+ riderShadow.position.set(player.position.x,.006,player.position.z);
  riderShadow.rotation.z=lean*.45;
  riderShadow.scale.set(2.45+shadowHeight*.45,1.3+shadowHeight*.36,1);
  riderShadow.material.opacity=.88/(1+shadowHeight*.65);
@@ -772,7 +784,9 @@ pad.addEventListener('pointerdown',e=>{gesture={x:e.clientX,y:e.clientY,id:e.poi
 pad.addEventListener('pointermove',e=>{if(!gesture||gesture.id!==e.pointerId||gesture.done)return;const dx=e.clientX-gesture.x,dy=e.clientY-gesture.y,th=Math.max(22,Math.min(root.clientWidth,root.clientHeight)*.055);
  if(Math.abs(dx)<th&&Math.abs(dy)<th)return;gesture.done=true;if(Math.abs(dy)>Math.abs(dx)*1.1){if(dy<0)doJump();else doSlide()}else move(dx>0?1:-1)},{passive:true});
 const endGesture=e=>{if(gesture&&gesture.id===e.pointerId)gesture=null};pad.addEventListener('pointerup',endGesture,{passive:true});pad.addEventListener('pointercancel',endGesture,{passive:true});
-function animate(){requestAnimationFrame(animate);let dt=Math.min(clock.getDelta(),.04),t=clock.elapsedTime;
+let frameEMA=1/60,qualityElapsed=0;
+function animate(){requestAnimationFrame(animate);const rawDt=clock.getDelta();let dt=Math.min(rawDt,.04),t=clock.elapsedTime;
+ if(gameState==='run'&&rawDt<.25){frameEMA=frameEMA*.97+rawDt*.03;qualityElapsed+=rawDt;if(qualityElapsed>4){qualityElapsed=0;if(frameEMA>.027&&renderRatio>Math.min(maxPixelRatio,1.35)){renderRatio=Math.max(Math.min(maxPixelRatio,1.35),renderRatio-.2);renderer.setPixelRatio(renderRatio);renderer.setSize(root.clientWidth,root.clientHeight)}}}
 if(gameState==='countdown'){const left=(countdown-performance.now())/1000,n=String(Math.ceil(left));if(left<=0){gameState='run';$('countdown').classList.remove('show')}else if($('countdown').textContent!==n){$('countdown').textContent=n;tone(520,.06,'sine',.025)}}
 if(gameState==='run'){
 const dd=speed*dt*.62;dist+=dd;speed=MODE==='endless'?Math.min(40,19+dist/120)*(1-.3*tired):19+Math.min(10,dist/115);runTime+=dt;spawn-=dt;
@@ -813,8 +827,9 @@ for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.life-=dt;p.m.positio
  for(let l of lamps){l.position.z+=speed*dt;if(l.position.z>18)l.position.z-=112}
  for(let b of buildings){b.position.z+=speed*dt;if(b.position.z>22)b.position.z-=108}
  for(let b of bridges){b.position.z+=speed*dt;if(b.position.z>30)b.position.z-=220}
- for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=112}
- for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z=-100}
+ asphaltTex.offset.y=(asphaltTex.offset.y-speed*dt*12/140)%1;
+ for(let d of roadDashes){d.position.z+=speed*dt;if(d.position.z>12)d.position.z-=136}
+ for(let e of roadEdges){e.position.z+=speed*dt;if(e.position.z>12)e.position.z-=132}
 }
 if(shake>0){shake=Math.max(0,shake-dt);camera.position.x=(Math.random()-.5)*shake*1.6;camera.position.y=camBaseY+(Math.random()-.5)*shake}else{camera.position.x=0;camera.position.y=camBaseY}updateRunnerImage(t,dt);robot.userData.body.position.z=['run','paused','countdown','finishing'].includes(gameState)?.82:0;renderer.render(scene,camera)}
 animate();
