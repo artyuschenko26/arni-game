@@ -1,0 +1,30 @@
+name: Проверка подключения Telegram-бота
+on:
+  workflow_dispatch:
+permissions: {}
+jobs:
+  get-me:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Проверить токен через getMe
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from urllib.request import urlopen
+
+          token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+          if not token:
+              raise SystemExit("Добавьте секрет TELEGRAM_BOT_TOKEN в настройки репозитория.")
+          try:
+              with urlopen(f"https://api.telegram.org/bot{token}/getMe", timeout=15) as response:
+                  data = json.load(response)
+          except Exception:
+              raise SystemExit("Не удалось выполнить запрос к Telegram Bot API. Проверьте токен.") from None
+          if not data.get("ok") or data.get("result", {}).get("username", "").lower() != "arnigame_bot":
+              raise SystemExit("Укажите токен бота @arnigame_bot.")
+          print("Подключение подтверждено: @arnigame_bot.")
+          PY
