@@ -735,52 +735,21 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    tracked.push({bone,prop:binding.propertyName,interpolant:track.createInterpolant(new Float32Array(track.getValueSize()))});
   }
   if(tracked.length!==clip.tracks.length)throw Error('Incomplete rider track binding');
-  // A separately authored neutral riding stance. Use the existing fixed-foot IK clip
-  // as the foundation, at a shallow bend, so the sole contact positions do not move.
-  for(const t of tracked)t.bone[t.prop].fromArray(t.interpolant.evaluate(.034));
+  // V20.7: reference-fitted neutral rider pose, solved offline from the classic sprite
+  // with the actual skeleton lengths and game camera projection. The crouch clip
+  // and its existing crossfade are untouched. Ankles retain their original anchors.
+  const neutralRotations={"L_Thigh":[-0.207661354,-0.080059075,-0.402256569,0.888063601],"L_Calf":[0.306722936,-0.029389466,0.486124767,0.817765254],"L_Foot":[0.007890718,-0.441648419,0.757806469,-0.480222622],"R_Thigh":[-0.453453092,-0.130730203,-0.462235881,0.750751555],"R_Calf":[0.29179564,-0.03271208,0.571291678,0.766427454],"R_Foot":[-0.200814881,-0.535675752,0.637171856,-0.516465776],"Waist":[0.010010694,-0.036462636,-0.142203105,0.989115028],"Spine01":[0.020677971,0.030566109,-0.013868357,0.999222599],"Spine02":[-0.020132002,0.059428746,-0.001426957,0.998028502],"Head":[-0.207272951,0.117105933,0.153915414,0.958975583],"L_Upperarm":[-0.376725004,0.044755863,-0.029846015,0.924761807],"L_Forearm":[0.120457101,-0.007346445,-0.094493997,0.988183688],"R_Upperarm":[0.265303041,0.90808441,-0.321110541,0.043416833],"R_Forearm":[0.202550132,0.315966192,0.063577636,0.924714385]};
+  const neutralRoot=[-0.135,0.405742787,0.055];
+  for(const t of tracked){
+   if(t.prop==='position'&&t.bone.name==='BoneRoot'){
+    t.bone.position.fromArray(neutralRoot);
+   }else if(t.prop==='quaternion'&&neutralRotations[t.bone.name]){
+    t.bone.quaternion.fromArray(neutralRotations[t.bone.name]).normalize();
+   }else{
+    t.bone[t.prop].fromArray(t.interpolant.evaluate(0));
+   }
+  }
   model.updateWorldMatrix(true,true);
-  const rotate=(name,axis,angle)=>{
-   const bone=model.getObjectByName(name);if(!bone||!bone.parent)return;
-   const qModel=model.getWorldQuaternion(new THREE.Quaternion());
-   const qParent=bone.parent.getWorldQuaternion(new THREE.Quaternion());
-   const localAxis=new THREE.Vector3(...axis).applyQuaternion(qModel).applyQuaternion(qParent.invert()).normalize();
-   bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(localAxis,angle)).normalize();
-   bone.updateWorldMatrix(false,true);
-  };
-  // V20.6: only the neutral stance, expressed in the model's actual coordinate system.
-  // Local +X is anatomical forward, +/-Z are the shoulder/foot sides.
-  rotate('Waist',[0,0,1],-.115);
-  rotate('Spine01',[0,0,1],-.070);
-  rotate('Spine02',[0,1,0],.15);
-  // Aim the shoulder/elbow chain in model space, preserving lengths and original rig.
-  const aim=(name,childName,direction)=>{
-   const bone=model.getObjectByName(name),child=model.getObjectByName(childName);
-   if(!bone||!child||!bone.parent)throw Error('Missing stance bone '+name);
-   model.updateWorldMatrix(true,true);
-   const from=child.getWorldPosition(new THREE.Vector3()).sub(bone.getWorldPosition(new THREE.Vector3())).normalize();
-   const modelQ=model.getWorldQuaternion(new THREE.Quaternion());
-   const to=new THREE.Vector3(...direction).normalize().applyQuaternion(modelQ);
-   const correction=new THREE.Quaternion().setFromUnitVectors(from,to);
-   const desired=correction.multiply(bone.getWorldQuaternion(new THREE.Quaternion()));
-   bone.quaternion.copy(bone.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(desired)).normalize();
-   bone.updateWorldMatrix(false,true);
-  };
-  // Rear arm goes back and down; forward arm reaches out with a relaxed elbow.
-  aim('L_Upperarm','L_Forearm',[-.52,-.69,-.50]);
-  aim('L_Forearm','L_Hand',[-.34,-.67,-.66]);
-  aim('R_Upperarm','R_Forearm',[.31,-.80,.51]);
-  aim('R_Forearm','R_Hand',[.65,-.54,.53]);
-  // The head's neutral anatomical orientation was measured from the source skeleton.
-  // Rotate that neutral orientation until the facial forward vector is road -Z.
-  model.updateWorldMatrix(true,true);
-  const head=model.getObjectByName('Head');
-  if(!head||!head.parent)throw Error('Missing head bone');
-  const restHead=new THREE.Quaternion(.0810660507,.2896519950,.2896520431,-.9086429304).normalize();
-  const headYaw=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),Math.PI/2-deckRig.rotation.y);
-  const headPitch=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1),-.035);
-  const headWorld=model.getWorldQuaternion(new THREE.Quaternion()).multiply(headYaw).multiply(headPitch).multiply(restHead);
-  head.quaternion.copy(head.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(headWorld)).normalize();
-  head.updateWorldMatrix(false,true);
   riderTracks=tracked;
   riderIdlePose=tracked.map(t=>t.bone[t.prop].clone());
  }
