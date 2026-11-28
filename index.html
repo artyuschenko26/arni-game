@@ -828,6 +828,45 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    if(blend<1){if(t.prop==='quaternion')dest.slerp(riderIdlePose[i],1-blend);else dest.lerp(riderIdlePose[i],1-blend);}
   }
  }
+ const riderReferenceMap={value:null},riderReferenceReady={value:false};
+ async function applyRiderReference(model){
+  const loader=new THREE.TextureLoader();
+  try{
+   const [patch,reference]=await Promise.all([
+    fetch('assets/arni-rider-reference-shape.bin').then(response=>{
+     if(!response.ok)throw Error('Rider geometry HTTP '+response.status);
+     return response.arrayBuffer();
+    }),
+    loader.loadAsync('assets/arni-rider-reference.webp')
+   ]);
+   const meshes=[];
+   model.traverse(mesh=>{if(mesh.isSkinnedMesh)meshes.push(mesh)});
+   const geometry=meshes[0]?.geometry;
+   const position=geometry?.getAttribute('position');
+   if(meshes.length!==1||!position||patch.byteLength!==position.count*6){
+    reference.dispose();
+    throw Error('Rider geometry patch does not match the skinned mesh');
+   }
+   const displacement=new DataView(patch);
+   for(let i=0;i<position.array.length;i++){
+    position.array[i]+=displacement.getInt16(i*2,true)/65536;
+   }
+   position.needsUpdate=true;
+   geometry.computeVertexNormals();
+   geometry.computeBoundingBox();
+   geometry.computeBoundingSphere();
+   reference.colorSpace=THREE.SRGBColorSpace;
+   reference.flipY=false;
+   reference.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+   reference.needsUpdate=true;
+   riderReferenceMap.value=reference;
+   riderReferenceReady.value=true;
+   window.__arniReferenceStatus='ready';
+  }catch(error){
+   window.__arniReferenceStatus='fallback';
+   console.warn('ARNI reference appearance unavailable',error);
+  }
+ }
  function styleRiderMaterial(material){
   material.roughness=.78;
   material.metalness=0;
@@ -836,7 +875,9 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
   material.emissiveIntensity=.34;
   material.normalScale.set(.54,.54);
   material.onBeforeCompile=shader=>{
-   shader.fragmentShader=shader.fragmentShader
+   shader.uniforms.arniReferenceMap=riderReferenceMap;
+   shader.uniforms.arniReferenceReady=riderReferenceReady;
+   shader.fragmentShader='uniform sampler2D arniReferenceMap;\nuniform bool arniReferenceReady;\n'+shader.fragmentShader
     .replace('#include <map_fragment>',`
      #include <map_fragment>
      vec3 arniPigment = diffuseColor.rgb;
@@ -860,6 +901,15 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
      float arniBackFill=.35+.65*max(dot(normal,normalize(vec3(-.42,.68,1.0))),0.0);
      outgoingLight+=arniEdge*arniRim+diffuseColor.rgb*arniBackFill*.33;
      #include <opaque_fragment>
+    `)
+    .replace('#include <tonemapping_fragment>',`
+     #include <tonemapping_fragment>
+     #ifdef USE_MAP
+      if(arniReferenceReady){
+       vec4 arniArtwork=texture2D(arniReferenceMap,vMapUv);
+       gl_FragColor.rgb=mix(gl_FragColor.rgb,arniArtwork.rgb,arniArtwork.a*.96);
+      }
+     #endif
     `);
   };
   material.needsUpdate=true;
@@ -910,6 +960,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
     styleRiderMaterial(material);
    });
    if(!skinned)throw Error('Missing skinned mesh');
+   await applyRiderReference(model);
    deckRig.add(model);rider3D=model;riderMixer=new THREE.AnimationMixer(model);riderDuration=clip.duration;
    riderAction=riderMixer.clipAction(clip);riderAction.setLoop(THREE.LoopOnce,1);riderAction.clampWhenFinished=true;riderAction.play();riderAction.paused=true;riderAction.time=0;riderMixer.update(0);
    refineRiderSilhouette(model);
