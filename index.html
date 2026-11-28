@@ -676,6 +676,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
  // V20: actual skeletal ARNI, with a baked crouch clip and separately modeled hoverboard.
  let rider3D=null,riderMixer=null,riderAction=null,riderDuration=.72,loadingRider3D=true,use3DThisRun=false;
  let riderPoseClock=0;
+ let riderIdlePose=null,riderTracks=[];
  window.__arni3DStatus='loading';
  const hover3DRoot=new THREE.Group();hover3DRoot.name='ARNI_3D_HOVER_RIG';hover3DRoot.visible=false;scene.add(hover3DRoot);
  const deckRig=new THREE.Group();deckRig.rotation.y=.92;hover3DRoot.add(deckRig);
@@ -724,6 +725,70 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
   classicBoardMaterial.rotation=hover3DRoot.rotation.z*.92;
   const width=2.24;classicBoard.scale.set(width,width*298/509,1);
  }
+ // V20.5: visual-only character refinement. The original crouch clip stays byte-for-byte unchanged.
+ function prepareRiderIdle(model,clip){
+  const tracked=[];
+  for(const track of clip.tracks){
+   const binding=THREE.PropertyBinding.parseTrackName(track.name);
+   const bone=THREE.PropertyBinding.findNode(model,binding.nodeName);
+   if(!bone||!bone.isBone||!['position','quaternion'].includes(binding.propertyName))continue;
+   tracked.push({bone,prop:binding.propertyName,interpolant:track.createInterpolant(new Float32Array(track.getValueSize()))});
+  }
+  if(tracked.length!==clip.tracks.length)throw Error('Incomplete rider track binding');
+  // A separately authored neutral riding stance. Use the existing fixed-foot IK clip
+  // as the foundation, at a shallow bend, so the sole contact positions do not move.
+  for(const t of tracked)t.bone[t.prop].fromArray(t.interpolant.evaluate(.034));
+  model.updateWorldMatrix(true,true);
+  const rotate=(name,axis,angle)=>{
+   const bone=model.getObjectByName(name);if(!bone||!bone.parent)return;
+   const qModel=model.getWorldQuaternion(new THREE.Quaternion());
+   const qParent=bone.parent.getWorldQuaternion(new THREE.Quaternion());
+   const localAxis=new THREE.Vector3(...axis).applyQuaternion(qModel).applyQuaternion(qParent.invert()).normalize();
+   bone.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(localAxis,angle)).normalize();
+   bone.updateWorldMatrix(false,true);
+  };
+  // Chest forward; shoulders and arms asymmetric like the approved classic rider.
+  rotate('Waist',[0,0,1],-.095);
+  rotate('Spine01',[0,0,1],-.060);
+  rotate('Spine02',[0,1,0],.115);
+  rotate('Head',[0,0,1],.055);
+  rotate('Head',[0,1,0],-.105);
+  rotate('L_Upperarm',[1,0,0],.24);
+  rotate('R_Upperarm',[1,0,0],-.22);
+  rotate('L_Upperarm',[0,0,1],-.16);
+  rotate('R_Upperarm',[0,0,1],.24);
+  rotate('L_Forearm',[0,0,1],-.08);
+  rotate('R_Forearm',[0,0,1],.12);
+  riderTracks=tracked;
+  riderIdlePose=tracked.map(t=>t.bone[t.prop].clone());
+ }
+ function applyRiderPose(sample,low){
+  if(!riderIdlePose)return;
+  // Keep the full crouch clip and game timing; only crossfade the stance at its edges.
+  const blend=low?THREE.MathUtils.smoothstep(Math.min(sample,riderDuration-sample),0,.045):0;
+  for(let i=0;i<riderTracks.length;i++){
+   const t=riderTracks[i],dest=t.bone[t.prop];
+   if(blend<=0){dest.copy(riderIdlePose[i]);continue;}
+   dest.fromArray(t.interpolant.evaluate(sample));
+   if(blend<1){if(t.prop==='quaternion')dest.slerp(riderIdlePose[i],1-blend);else dest.lerp(riderIdlePose[i],1-blend);}
+  }
+ }
+ async function loadRiderDetailTextures(model){
+  try{
+   const res=await fetch('assets/arni-rider-detail-v20-5.txt');
+   if(!res.ok)throw Error('Texture HTTP '+res.status);
+   const pack=(await res.text()).trim().split(/\r?\n/);
+   if(pack.length!==2)throw Error('Texture pack invalid');
+   const loader=new THREE.TextureLoader();
+   const [color,normal]=await Promise.all(pack.map(url=>loader.loadAsync(url)));
+   color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;normal.flipY=false;
+   for(const t of [color,normal]){t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());t.needsUpdate=true;}
+   const old=new Set();
+   model.traverse(o=>{if(o.isMesh&&o.material?.isMeshStandardMaterial){const m=o.material;if(m.map)old.add(m.map);if(m.normalMap)old.add(m.normalMap);m.map=color;m.normalMap=normal;m.emissiveMap=color;m.normalScale.set(.65,.65);m.needsUpdate=true;}});
+   for(const t of old)t.dispose();
+   window.__arniRiderDetail='2k-ready';
+  }catch(e){window.__arniRiderDetail='original-fallback';console.warn('Rider detail fallback',e);}
+ }
  function refreshRiderReady(){if(runMaterial.map&&!loadingRider3D){$('start').disabled=false;$('playText').textContent='Играть';}}
  async function loadArni3D(){
   const fallback=setTimeout(()=>{if(loadingRider3D){loadingRider3D=false;window.__arni3DStatus='fallback-timeout';refreshRiderReady();}},14000);
@@ -738,10 +803,12 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    const gltf=await loader.parseAsync(bytes.buffer,'');const clip=gltf.animations.find(a=>a.name==='ARNI_CROUCH');
    if(!clip||clip.duration<.6||clip.tracks.length<10)throw Error('Missing crouch clip');
    const model=gltf.scene;model.name='ARNI_CROUCH_V2';model.scale.setScalar(2.58);model.position.y=.252;
-   let skinned=0;model.traverse(o=>{if(o.isSkinnedMesh){skinned++;o.frustumCulled=false;o.castShadow=false;o.receiveShadow=false;o.renderOrder=11;}if(o.isMesh&&o.material){const maps=[o.material.map,o.material.normalMap];for(const m of maps)if(m)m.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());if(o.material.isMeshStandardMaterial){o.material.roughness=.92;o.material.metalness=0;o.material.emissive.set(0xfff0df);o.material.emissiveMap=o.material.map;o.material.emissiveIntensity=.58;if(o.material.normalMap)o.material.normalScale.set(.38,.38);o.material.needsUpdate=true;}}});
+   let skinned=0;model.traverse(o=>{if(o.isSkinnedMesh){skinned++;o.frustumCulled=false;o.castShadow=false;o.receiveShadow=false;o.renderOrder=11;}if(o.isMesh&&o.material){const maps=[o.material.map,o.material.normalMap];for(const m of maps)if(m)m.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());if(o.material.isMeshStandardMaterial){o.material.roughness=.83;o.material.metalness=0;o.material.emissive.set(0xfff2e4);o.material.emissiveMap=o.material.map;o.material.emissiveIntensity=.36;if(o.material.normalMap)o.material.normalScale.set(.55,.55);o.material.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>', 'float arniRim = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 2.4); outgoingLight += arniRim * mix(vec3(0.018,0.026,0.038),vec3(0.095,0.046,0.018),smoothstep(-0.45,0.55,normal.x));\n#include <opaque_fragment>');};o.material.needsUpdate=true;}}});
    if(!skinned)throw Error('Missing skinned mesh');
    deckRig.add(model);rider3D=model;riderMixer=new THREE.AnimationMixer(model);riderDuration=clip.duration;
    riderAction=riderMixer.clipAction(clip);riderAction.setLoop(THREE.LoopOnce,1);riderAction.clampWhenFinished=true;riderAction.play();riderAction.paused=true;riderAction.time=0;riderMixer.update(0);
+   prepareRiderIdle(model,clip);
+   loadRiderDetailTextures(model);
    window.__arni3DStatus='ready';
   }catch(e){window.__arni3DStatus='fallback';console.warn('ARNI 3D load failed; original sprite retained',e);}
   finally{clearTimeout(fallback);loadingRider3D=false;refreshRiderReady();}
@@ -778,6 +845,7 @@ function updateRunnerImage(time,dt){
   const idleSample=air?.035:(.008+.008*Math.sin(riderPoseClock*3.8));
   riderAction.time=low?Math.min(riderDuration-.00001,Math.max(0,(.72-slide)/.72*riderDuration)):idleSample;
   riderMixer.update(0);
+  applyRiderPose(riderAction.time,low);
   updateClassicBoard(true);
  }
  hoverTrail.position.set(player.position.x,.02,player.position.z);
