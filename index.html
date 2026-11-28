@@ -746,7 +746,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    if(forearm)forearm.rotateX(pose.elbow);
   }
  }
- function centerRiderStance(model){
+ function widenRiderStance(model){
   const rootBone=model.getObjectByName('BoneRoot');
   const legs=['L','R'].map(side=>['Thigh','Calf','Foot'].map(name=>model.getObjectByName(side+'_'+name)));
   if(!rootBone||legs.some(chain=>chain.some(bone=>!bone)))return;
@@ -755,8 +755,15 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
   const anchors=legs.map(([thigh,calf,foot])=>({
    hip:worldPoint(thigh),knee:worldPoint(calf),ankle:worldPoint(foot),footRotation:worldRotation(foot)
   }));
+  // Space the boots along the deck while keeping the height and pitch of both soles.
+  const spread=.16;
+  for(const anchor of anchors){
+   const contact=deckRig.worldToLocal(anchor.ankle.clone());
+   contact.z+=Math.sign(contact.z)*spread;
+   anchor.target=deckRig.localToWorld(contact);
+  }
   const pelvis=deckRig.worldToLocal(worldPoint(rootBone));
-  pelvis.add(new THREE.Vector3(.21,.115,-.015));
+  pelvis.add(new THREE.Vector3(.235,-.055,-.086));
   rootBone.position.copy(rootBone.parent.worldToLocal(deckRig.localToWorld(pelvis)));
   const aim=(bone,child,target)=>{
    const origin=worldPoint(bone);
@@ -769,7 +776,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    const [thigh,calf,foot]=legs[i],anchor=anchors[i];
    const hip=worldPoint(thigh);
    const upper=anchor.hip.distanceTo(anchor.knee),lower=anchor.knee.distanceTo(anchor.ankle);
-   const axis=anchor.ankle.clone().sub(hip);
+   const axis=anchor.target.clone().sub(hip);
    const reach=THREE.MathUtils.clamp(axis.length(),Math.abs(upper-lower)+.001,upper+lower-.001);
    axis.normalize();
    const along=(upper*upper-lower*lower+reach*reach)/(2*reach);
@@ -777,7 +784,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    bend.addScaledVector(axis,-bend.dot(axis)).normalize();
    const knee=hip.clone().addScaledVector(axis,along).addScaledVector(bend,Math.sqrt(Math.max(0,upper*upper-along*along)));
    aim(thigh,calf,knee);
-   aim(calf,foot,anchor.ankle);
+   aim(calf,foot,anchor.target);
    foot.quaternion.copy(worldRotation(foot.parent).invert().multiply(anchor.footRotation));
   }
  }
@@ -792,7 +799,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
   if(tracked.length!==clip.tracks.length)throw Error('Incomplete rider track binding');
   // V20.7: reference-fitted neutral rider pose, solved offline from the classic sprite
   // with the actual skeleton lengths and game camera projection. The crouch clip
-  // and its existing crossfade are untouched. Ankles retain their original anchors.
+  // is sampled as authored. The standing pose alone uses the wider contact points.
   const neutralRotations={"L_Thigh":[-0.207661354,-0.080059075,-0.402256569,0.888063601],"L_Calf":[0.306722936,-0.029389466,0.486124767,0.817765254],"L_Foot":[0.007890718,-0.441648419,0.757806469,-0.480222622],"R_Thigh":[-0.453453092,-0.130730203,-0.462235881,0.750751555],"R_Calf":[0.29179564,-0.03271208,0.571291678,0.766427454],"R_Foot":[-0.200814881,-0.535675752,0.637171856,-0.516465776],"Waist":[0.010010694,-0.036462636,-0.142203105,0.989115028],"Spine01":[0.020677971,0.030566109,-0.013868357,0.999222599],"Spine02":[-0.020132002,0.059428746,-0.001426957,0.998028502],"Head":[-0.207272951,0.117105933,0.153915414,0.958975583],"L_Upperarm":[-0.376725004,0.044755863,-0.029846015,0.924761807],"L_Forearm":[0.120457101,-0.007346445,-0.094493997,0.988183688],"R_Upperarm":[0.265303041,0.90808441,-0.321110541,0.043416833],"R_Forearm":[0.202550132,0.315966192,0.063577636,0.924714385]};
   const neutralRoot=[-0.135,0.405742787,0.055];
   for(const t of tracked){
@@ -805,7 +812,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    }
   }
   model.updateWorldMatrix(true,true);
-  centerRiderStance(model);
+  widenRiderStance(model);
   fitRiderUpperBody(model);
   riderTracks=tracked;
   riderIdlePose=tracked.map(t=>t.bone[t.prop].clone());
@@ -821,6 +828,42 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    if(blend<1){if(t.prop==='quaternion')dest.slerp(riderIdlePose[i],1-blend);else dest.lerp(riderIdlePose[i],1-blend);}
   }
  }
+ function styleRiderMaterial(material){
+  material.roughness=.78;
+  material.metalness=0;
+  material.emissive.set(0xfff5eb);
+  material.emissiveMap=material.map;
+  material.emissiveIntensity=.34;
+  material.normalScale.set(.54,.54);
+  material.onBeforeCompile=shader=>{
+   shader.fragmentShader=shader.fragmentShader
+    .replace('#include <map_fragment>',`
+     #include <map_fragment>
+     vec3 arniPigment = diffuseColor.rgb;
+     float arniValue = dot(arniPigment,vec3(.2126,.7152,.0722));
+     float arniChroma = max(max(arniPigment.r,arniPigment.g),arniPigment.b)
+                       - min(min(arniPigment.r,arniPigment.g),arniPigment.b);
+     float arniFabric = (1.0-smoothstep(.025,.105,arniChroma))
+                       * (1.0-smoothstep(.045,.18,arniValue));
+     float arniTrim = smoothstep(.07,.40,arniPigment.r-arniPigment.g)
+                     * (1.0-smoothstep(.10,.32,arniPigment.b));
+     diffuseColor.rgb = mix(arniPigment,arniPigment*vec3(1.07,1.17,1.30)+vec3(.009,.012,.017),arniFabric);
+     diffuseColor.rgb = mix(diffuseColor.rgb,diffuseColor.rgb*vec3(1.10,1.16,.89),arniTrim*.72);
+    `)
+    .replace('#include <roughnessmap_fragment>',`
+     #include <roughnessmap_fragment>
+     roughnessFactor=clamp(roughnessFactor+arniFabric*.11-arniTrim*.19,.35,.96);
+    `)
+    .replace('#include <opaque_fragment>',`
+     float arniEdge=pow(1.0-clamp(dot(normal,normalize(vViewPosition)),0.0,1.0),2.2);
+     vec3 arniRim=mix(vec3(.045,.066,.095),vec3(.100,.059,.030),smoothstep(-.55,.66,normal.x));
+     float arniBackFill=.35+.65*max(dot(normal,normalize(vec3(-.42,.68,1.0))),0.0);
+     outgoingLight+=arniEdge*arniRim+diffuseColor.rgb*arniBackFill*.33;
+     #include <opaque_fragment>
+    `);
+  };
+  material.needsUpdate=true;
+ }
  async function loadRiderDetailTextures(model){
   try{
    const res=await fetch('assets/arni-rider-detail-v20-5.txt');
@@ -832,7 +875,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    color.colorSpace=THREE.SRGBColorSpace;color.flipY=false;normal.flipY=false;
    for(const t of [color,normal]){t.minFilter=THREE.LinearMipmapLinearFilter;t.magFilter=THREE.LinearFilter;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());t.needsUpdate=true;}
    const old=new Set();
-   model.traverse(o=>{if(o.isMesh&&o.material?.isMeshStandardMaterial){const m=o.material;if(m.map)old.add(m.map);if(m.normalMap)old.add(m.normalMap);m.map=color;m.normalMap=normal;m.emissiveMap=color;m.normalScale.set(.48,.48);m.needsUpdate=true;}});
+   model.traverse(o=>{if(o.isMesh&&o.material?.isMeshStandardMaterial){const m=o.material;if(m.map)old.add(m.map);if(m.normalMap)old.add(m.normalMap);m.map=color;m.normalMap=normal;m.emissiveMap=color;m.normalScale.set(.54,.54);m.needsUpdate=true;}});
    for(const t of old)t.dispose();
    window.__arniRiderDetail='2k-ready';
   }catch(e){window.__arniRiderDetail='original-fallback';console.warn('Rider detail fallback',e);}
@@ -851,7 +894,21 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    const gltf=await loader.parseAsync(bytes.buffer,'');const clip=gltf.animations.find(a=>a.name==='ARNI_CROUCH');
    if(!clip||clip.duration<.6||clip.tracks.length<10)throw Error('Missing crouch clip');
    const model=gltf.scene;model.name='ARNI_CROUCH_V2';model.scale.setScalar(2.58);model.position.y=.252;
-   let skinned=0;model.traverse(o=>{if(o.isSkinnedMesh){skinned++;o.frustumCulled=false;o.castShadow=false;o.receiveShadow=false;o.renderOrder=11;}if(o.isMesh&&o.material){const maps=[o.material.map,o.material.normalMap];for(const m of maps)if(m)m.anisotropy=Math.min(4,renderer.capabilities.getMaxAnisotropy());if(o.material.isMeshStandardMaterial){o.material.roughness=.79;o.material.metalness=0;o.material.emissive.set(0xfff7ef);o.material.emissiveMap=o.material.map;o.material.emissiveIntensity=.59;if(o.material.normalMap)o.material.normalScale.set(.55,.55);o.material.onBeforeCompile=shader=>{shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>', 'float arniRim = pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 2.4); outgoingLight += arniRim * mix(vec3(0.042,0.047,0.054),vec3(0.097,0.061,0.032),smoothstep(-0.45,0.55,normal.x));\n#include <opaque_fragment>');};o.material.needsUpdate=true;}}});
+   let skinned=0;
+   model.traverse(mesh=>{
+    if(!mesh.isSkinnedMesh)return;
+    skinned++;
+    mesh.frustumCulled=false;
+    mesh.castShadow=false;
+    mesh.receiveShadow=false;
+    mesh.renderOrder=11;
+    const material=mesh.material;
+    if(!material?.isMeshStandardMaterial)return;
+    for(const map of [material.map,material.normalMap]){
+     if(map)map.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+    }
+    styleRiderMaterial(material);
+   });
    if(!skinned)throw Error('Missing skinned mesh');
    deckRig.add(model);rider3D=model;riderMixer=new THREE.AnimationMixer(model);riderDuration=clip.duration;
    riderAction=riderMixer.clipAction(clip);riderAction.setLoop(THREE.LoopOnce,1);riderAction.clampWhenFinished=true;riderAction.play();riderAction.paused=true;riderAction.time=0;riderMixer.update(0);
