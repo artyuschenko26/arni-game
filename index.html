@@ -925,7 +925,7 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
   const edgeTime=Math.min(sample,riderDuration-sample);
   const weight=low?1-THREE.MathUtils.smoothstep(edgeTime,0,.12):1;
   riderReferenceMesh.morphTargetInfluences[0]=weight;
-  riderReferenceWeight.value=.72+.28*weight;
+  riderReferenceWeight.value=1;
  }
  async function applyRiderReference(model){
   const loader=new THREE.TextureLoader();
