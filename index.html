@@ -828,7 +828,17 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    if(blend<1){if(t.prop==='quaternion')dest.slerp(riderIdlePose[i],1-blend);else dest.lerp(riderIdlePose[i],1-blend);}
   }
  }
- const riderReferenceMap={value:null},riderReferenceReady={value:false};
+ const riderReferenceMap={value:null},riderReferenceWeight={value:0};
+ let riderReferenceMesh=null;
+ function updateRiderReference(sample,low){
+  if(!riderReferenceMesh)return;
+  // The reference correction is fitted to the neutral stance. Fade it out
+  // before the original crouch reaches its full depth.
+  const edgeTime=Math.min(sample,riderDuration-sample);
+  const weight=low?1-THREE.MathUtils.smoothstep(edgeTime,0,.12):1;
+  riderReferenceMesh.morphTargetInfluences[0]=weight;
+  riderReferenceWeight.value=.72+.28*weight;
+ }
  async function applyRiderReference(model){
   const loader=new THREE.TextureLoader();
   try{
@@ -843,24 +853,32 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
    model.traverse(mesh=>{if(mesh.isSkinnedMesh)meshes.push(mesh)});
    const geometry=meshes[0]?.geometry;
    const position=geometry?.getAttribute('position');
-   if(meshes.length!==1||!position||patch.byteLength!==position.count*6){
+   if(meshes.length!==1||!position||patch.byteLength!==position.count*6||
+      Object.values(geometry.morphAttributes).some(attributes=>attributes.length)){
     reference.dispose();
     throw Error('Rider geometry patch does not match the skinned mesh');
    }
    const displacement=new DataView(patch);
-   for(let i=0;i<position.array.length;i++){
-    position.array[i]+=displacement.getInt16(i*2,true)/65536;
-   }
-   position.needsUpdate=true;
-   geometry.computeVertexNormals();
-   geometry.computeBoundingBox();
-   geometry.computeBoundingSphere();
+   const offsets=Float32Array.from(position.array,(_,i)=>displacement.getInt16(i*2,true)/65536);
+   const fitted=geometry.clone();
+   const fittedPosition=fitted.getAttribute('position');
+   for(let i=0;i<fittedPosition.array.length;i++)fittedPosition.array[i]+=offsets[i];
+   fitted.computeVertexNormals();
+   const normals=geometry.getAttribute('normal');
+   const fittedNormals=fitted.getAttribute('normal');
+   const normalOffsets=Float32Array.from(fittedNormals.array,(value,i)=>value-normals.array[i]);
+   fitted.dispose();
+   geometry.morphTargetsRelative=true;
+   geometry.morphAttributes.position=[new THREE.BufferAttribute(offsets,3)];
+   geometry.morphAttributes.normal=[new THREE.BufferAttribute(normalOffsets,3)];
+   meshes[0].updateMorphTargets();
+   riderReferenceMesh=meshes[0];
    reference.colorSpace=THREE.SRGBColorSpace;
    reference.flipY=false;
    reference.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
    reference.needsUpdate=true;
    riderReferenceMap.value=reference;
-   riderReferenceReady.value=true;
+   updateRiderReference(0,false);
    window.__arniReferenceStatus='ready';
   }catch(error){
    window.__arniReferenceStatus='fallback';
@@ -876,8 +894,8 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
   material.normalScale.set(.54,.54);
   material.onBeforeCompile=shader=>{
    shader.uniforms.arniReferenceMap=riderReferenceMap;
-   shader.uniforms.arniReferenceReady=riderReferenceReady;
-   shader.fragmentShader='uniform sampler2D arniReferenceMap;\nuniform bool arniReferenceReady;\n'+shader.fragmentShader
+   shader.uniforms.arniReferenceWeight=riderReferenceWeight;
+   shader.fragmentShader='uniform sampler2D arniReferenceMap;\nuniform float arniReferenceWeight;\n'+shader.fragmentShader
     .replace('#include <map_fragment>',`
      #include <map_fragment>
      vec3 arniPigment = diffuseColor.rgb;
@@ -905,9 +923,9 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
     .replace('#include <tonemapping_fragment>',`
      #include <tonemapping_fragment>
      #ifdef USE_MAP
-      if(arniReferenceReady){
+      if(arniReferenceWeight>0.0){
        vec4 arniArtwork=texture2D(arniReferenceMap,vMapUv);
-       gl_FragColor.rgb=mix(gl_FragColor.rgb,arniArtwork.rgb,arniArtwork.a*.96);
+       gl_FragColor.rgb=mix(gl_FragColor.rgb,arniArtwork.rgb,arniArtwork.a*.96*arniReferenceWeight);
       }
      #endif
     `);
@@ -1003,6 +1021,7 @@ function updateRunnerImage(time,dt){
   riderAction.time=low?Math.min(riderDuration-.00001,Math.max(0,(.72-slide)/.72*riderDuration)):idleSample;
   riderMixer.update(0);
   applyRiderPose(riderAction.time,low);
+  updateRiderReference(riderAction.time,low);
   updateClassicBoard(true);
  }
  hoverTrail.position.set(player.position.x,.02,player.position.z);
