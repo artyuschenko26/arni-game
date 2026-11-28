@@ -262,7 +262,7 @@ try {
  window.__arniLoadError('Не удалось запустить 3D-графику. Если повтор не помог, обнови Telegram или попробуй открыть игру в другом браузере с поддержкой WebGL.');
  throw error;
 }
-const maxPixelRatio=Math.min(devicePixelRatio,2);let renderRatio=maxPixelRatio;renderer.setPixelRatio(renderRatio);renderer.setSize(root.clientWidth,root.clientHeight);renderer.shadowMap.enabled=false;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;root.prepend(renderer.domElement);
+const coarsePointer=matchMedia('(pointer:coarse)').matches;const maxPixelRatio=Math.min(devicePixelRatio,coarsePointer?1.5:2);let renderRatio=maxPixelRatio;renderer.setPixelRatio(renderRatio);renderer.setSize(root.clientWidth,root.clientHeight);renderer.shadowMap.enabled=false;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;root.prepend(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xe4eaff,0xb69b86,1.48));{const rim=new THREE.DirectionalLight(0x8a96c8,.22);rim.position.set(0,14,-30);scene.add(rim);const fill=new THREE.DirectionalLight(0xd5e9ff,.95);fill.position.set(4,8,22);scene.add(fill)}const sun=new THREE.DirectionalLight(0xffd2a8,1.58);sun.position.set(-16,19,-22);sun.castShadow=false;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-10,right:10,top:15,bottom:-15,near:.5,far:65});sun.shadow.camera.updateProjectionMatrix();sun.shadow.bias=-.00015;sun.shadow.normalBias=.035;sun.shadow.radius=2;sun.target.position.set(0,0,-8);scene.add(sun.target);scene.add(sun);
 const mat=(color,roughness=.8,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
 const roadMat=mat(0x66636a,.42,.12),lineMat=mat(0xe3e6e8),orange=mat(0xff7417,.55),dark=mat(0x171d25),skin=mat(0xc9855b),glass=mat(0x66899a,.35,.2);
@@ -925,7 +925,9 @@ spriteInput.onchange=()=>{const f=spriteInput.files[0];if(!f)return;const reader
      #ifdef USE_MAP
       if(arniReferenceWeight>0.0){
        vec4 arniArtwork=texture2D(arniReferenceMap,vMapUv);
-       gl_FragColor.rgb=mix(gl_FragColor.rgb,arniArtwork.rgb,arniArtwork.a*.96*arniReferenceWeight);
+       float arniCover=smoothstep(.45,.95,arniArtwork.a);
+       vec3 arniHidden=vec3(.030,.032,.040)*(.75+.5*arniBackFill)+arniEdge*arniRim;
+       gl_FragColor.rgb=mix(mix(arniHidden,gl_FragColor.rgb,mix(1.0,arniCover,arniReferenceWeight)),arniArtwork.rgb,arniCover*.96*arniReferenceWeight);
       }
      #endif
     `);
@@ -1015,7 +1017,7 @@ function updateRunnerImage(time,dt){
   hover3DRoot.position.set(player.position.x,.07+lift+jumpLift,player.position.z);
   riderPoseClock+=motionDt;
   const balance=low?0:Math.sin(riderPoseClock*3.1)*.025;
-  hover3DRoot.rotation.z=lean*.76+balance;hover3DRoot.rotation.x=air?-.08:balance*.55;
+  hover3DRoot.rotation.z=lean*.5+balance;hover3DRoot.rotation.x=air?-.08:balance*.55;
   // Sampling the authored animation from the exact game slide timer preserves pause/resume.
   const idleSample=air?.035:(.008+.008*Math.sin(riderPoseClock*3.8));
   riderAction.time=low?Math.min(riderDuration-.00001,Math.max(0,(.72-slide)/.72*riderDuration)):idleSample;
@@ -1360,9 +1362,9 @@ pad.addEventListener('pointermove',e=>{if(!gesture||gesture.id!==e.pointerId||ge
  if(Math.abs(dx)<th&&Math.abs(dy)<th)return;gesture.done=true;if(Math.abs(dy)>Math.abs(dx)*1.1){if(dy<0)doJump();else doSlide()}else move(dx>0?1:-1)},{passive:true});
 const endGesture=e=>{if(gesture&&gesture.id===e.pointerId)gesture=null};pad.addEventListener('pointerup',endGesture,{passive:true});pad.addEventListener('pointercancel',endGesture,{passive:true});
 let frameEMA=1/60,qualityElapsed=0;
-function animate(){requestAnimationFrame(animate);const rawDt=clock.getDelta();let dt=Math.min(rawDt,.04),t=clock.elapsedTime;
+function animate(){requestAnimationFrame(animate);const rawDt=clock.getDelta();let dt=Math.min(rawDt,.05),t=clock.elapsedTime;
  if(gameState==='menu')return;
- if(gameState==='run'&&rawDt<.25){frameEMA=frameEMA*.97+rawDt*.03;qualityElapsed+=rawDt;if(qualityElapsed>4){qualityElapsed=0;if(frameEMA>.027&&renderRatio>Math.min(maxPixelRatio,1.35)){renderRatio=Math.max(Math.min(maxPixelRatio,1.35),renderRatio-.2);renderer.setPixelRatio(renderRatio);renderer.setSize(root.clientWidth,root.clientHeight)}}}
+ if(gameState==='run'&&rawDt<.25){frameEMA=frameEMA*.97+rawDt*.03;qualityElapsed+=rawDt;if(qualityElapsed>2){qualityElapsed=0;if(frameEMA>.027&&renderRatio>Math.min(maxPixelRatio,1)){renderRatio=Math.max(Math.min(maxPixelRatio,1),renderRatio-.2);renderer.setPixelRatio(renderRatio);renderer.setSize(root.clientWidth,root.clientHeight)}}}
 if(gameState==='countdown'){const left=(countdown-performance.now())/1000,n=String(Math.ceil(left));if(left<=0){gameState='run';$('countdown').classList.remove('show')}else if($('countdown').textContent!==n){$('countdown').textContent=n;tone(520,.06,'sine',.025)}}
 if(gameState==='run'){
 const dd=speed*dt*.62;dist+=dd;speed=MODE==='endless'?Math.min(40,19+dist/120)*(1-.3*tired):19+Math.min(10,dist/115);runTime+=dt;spawn-=dt;
